@@ -23,6 +23,26 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "different benchmark"):
                 RUNNER.ensure_run_manifest(root, {"model": "model-b"})
 
+    def test_run_configuration_binds_optimizer_and_package_version(self):
+        configuration = RUNNER.build_run_configuration(
+            suite_id="suite",
+            benchmark_definition_sha256="a" * 64,
+            model="model-a",
+            reasoning_effort="low",
+            candidate_count=1,
+        )
+
+        self.assertEqual(len(configuration["optimizer_prompt_sha256"]), 64)
+        self.assertEqual(len(configuration["domain_profiles_sha256"]), 64)
+        self.assertEqual(
+            configuration["package_version"],
+            RUNNER.PACKAGE_VERSION,
+        )
+        self.assertEqual(
+            configuration["evaluation_protocol"],
+            RUNNER.EVALUATION_PROTOCOL,
+        )
+
     def test_actual_usage_does_not_count_embedded_evaluation_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

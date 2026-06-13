@@ -21,8 +21,9 @@ SECRET_VALUE_RE = re.compile(
     r"['\"]?[A-Za-z0-9_\-]{8,}"
 )
 PLACEHOLDER_CODE_RE = re.compile(
-    r"(?im)^\s*(?:pass|todo\b|notimplementederror\b|"
-    r"throw new error\(['\"]todo|//\s*implementation here)"
+    r"(?im)^\s*(?:pass(?:\s*#.*)?|todo\b.*|"
+    r"(?:raise\s+)?notimplementederror\b.*|"
+    r"throw new error\(['\"]todo.*|//\s*implementation here.*)\s*$"
 )
 FAKE_CITATION_RE = re.compile(
     r"(?i)\b(fictional study|invented citation|fabricated source|"

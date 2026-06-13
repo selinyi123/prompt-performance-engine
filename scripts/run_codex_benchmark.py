@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from dataclasses import asdict
@@ -27,6 +28,7 @@ from prompt_performance_engine.codex_evaluation import (  # noqa: E402
     EVALUATION_PROTOCOL,
 )
 from prompt_performance_engine.contracts import OptimizationRequest  # noqa: E402
+from prompt_performance_engine.contracts import PACKAGE_VERSION  # noqa: E402
 from prompt_performance_engine.evaluation import (  # noqa: E402
     ExecutionConfig,
     evaluate_suite,
@@ -81,6 +83,37 @@ def ensure_run_manifest(
     else:
         write_json(path, manifest)
     return manifest
+
+
+def build_run_configuration(
+    *,
+    suite_id: str,
+    benchmark_definition_sha256: str,
+    model: str,
+    reasoning_effort: str,
+    candidate_count: int,
+) -> dict[str, Any]:
+    optimizer_prompt_sha256 = hashlib.sha256(
+        (ROOT / "prompts" / "optimizer.md").read_bytes()
+    ).hexdigest()
+    domain_profiles_sha256 = hashlib.sha256(
+        (ROOT / "profiles" / "domain_profiles.json").read_bytes()
+    ).hexdigest()
+    return {
+        "suite_id": suite_id,
+        "benchmark_definition_sha256": benchmark_definition_sha256,
+        "optimizer_prompt_sha256": optimizer_prompt_sha256,
+        "domain_profiles_sha256": domain_profiles_sha256,
+        "package_version": PACKAGE_VERSION,
+        "evaluation_protocol": EVALUATION_PROTOCOL,
+        "model": model,
+        "reasoning_effort": reasoning_effort,
+        "temperature": None,
+        "max_tokens": None,
+        "generation_seed": None,
+        "candidate_count": candidate_count,
+        "blind_seed": 20260613,
+    }
 
 
 def actual_usage_from_tree(root: Path) -> dict[str, int]:
@@ -204,7 +237,7 @@ def main() -> int:
     parser.add_argument(
         "--output-directory",
         type=Path,
-        default=ROOT / "artifacts" / "codex-benchmark-v7",
+        default=ROOT / "artifacts" / "codex-benchmark-v10",
     )
     parser.add_argument("--model", default="gpt-5.5")
     parser.add_argument(
@@ -251,18 +284,13 @@ def main() -> int:
     )
     ensure_run_manifest(
         output_directory,
-        {
-            "suite_id": suite_id,
-            "benchmark_definition_sha256": benchmark_definition_sha256,
-            "evaluation_protocol": EVALUATION_PROTOCOL,
-            "model": args.model,
-            "reasoning_effort": args.reasoning_effort,
-            "temperature": None,
-            "max_tokens": None,
-            "generation_seed": None,
-            "candidate_count": args.candidate_count,
-            "blind_seed": 20260613,
-        },
+        build_run_configuration(
+            suite_id=suite_id,
+            benchmark_definition_sha256=benchmark_definition_sha256,
+            model=args.model,
+            reasoning_effort=args.reasoning_effort,
+            candidate_count=args.candidate_count,
+        ),
     )
 
     def adapter_factory() -> CodexExecAdapter:

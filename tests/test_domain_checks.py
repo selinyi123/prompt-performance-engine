@@ -7,6 +7,24 @@ from prompt_performance_engine.domain_checks import (
 
 
 class DomainCheckTests(unittest.TestCase):
+    def test_natural_language_pass_is_not_placeholder_code(self):
+        checks = run_domain_checks(
+            "software_engineering",
+            "Add a dry-run flag.",
+            "Pass the parsed option to the existing execution function.",
+        )
+
+        self.assertTrue(all(item["passed"] for item in checks))
+
+    def test_standalone_pass_is_placeholder_code(self):
+        checks = run_domain_checks(
+            "software_engineering",
+            "Implement the function.",
+            "def implementation():\n    pass\n",
+        )
+
+        self.assertFalse(all(item["passed"] for item in checks))
+
     def test_every_required_domain_has_plugin(self):
         self.assertEqual(len(DOMAIN_CHECKS), 12)
 

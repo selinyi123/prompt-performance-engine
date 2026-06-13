@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from prompt_performance_engine.cli import main
+from prompt_performance_engine.hashing import hash_payload
 from prompt_performance_engine.validation import validate_artifact
 
 
@@ -81,6 +82,34 @@ class CliTests(unittest.TestCase):
             data = json.loads(artifact.read_text(encoding="utf-8"))
             self.assertEqual(validate_artifact(data), [])
             self.assertEqual(data["runtime"]["total_usage"]["total_tokens"], 5)
+
+    def test_readiness_completion_gate_returns_failure_for_missing_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = {
+                "schema_version": "1.0.0",
+                "artifacts": [],
+            }
+            manifest["manifest_sha256"] = hash_payload(
+                manifest,
+                "manifest_sha256",
+            )
+            path = root / "readiness-manifest.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            stdout = io.StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "assess-readiness",
+                        str(path),
+                        "--require-complete",
+                    ]
+                )
+
+            report = json.loads(stdout.getvalue())
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(report["status"], "incomplete")
 
 
 if __name__ == "__main__":

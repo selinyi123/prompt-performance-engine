@@ -61,6 +61,16 @@
 | Security | No unresolved critical threat-model finding |
 | Documentation | All commands and claims verified against current release |
 
+The machine-readable completion gate is:
+
+```powershell
+python -m prompt_performance_engine assess-readiness `
+  evidence\readiness-manifest.json --require-complete
+```
+
+Stable completion requires all R01-R10 requirements to pass without evidence
+errors. A partial benchmark or a missing evidence artifact must fail closed.
+
 ## Non-Evidence
 
 The following do not prove product quality by themselves:

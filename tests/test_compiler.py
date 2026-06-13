@@ -57,6 +57,24 @@ class CompilerTests(unittest.TestCase):
                     expected,
                 )
 
+    def test_optimizer_requires_rolling_migration_rollback_compatibility(self):
+        result = compile_request(
+            OptimizationRequest(
+                source_prompt="Design a backward-compatible database migration.",
+                domain="software_engineering",
+            )
+        )
+        system_prompt = result["system_prompt"]
+        self.assertIn("phase-by-phase compatibility matrix", system_prompt)
+        self.assertIn("old-version rollback", system_prompt)
+        guardrails = result["runtime_request"]["domain_guardrails"]
+        self.assertTrue(
+            any("mixed-version write synchronization" in item for item in guardrails)
+        )
+        self.assertTrue(
+            any("do not invent a replacement application" in item for item in guardrails)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

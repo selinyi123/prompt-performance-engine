@@ -33,6 +33,23 @@
   including one-based behavior vectors and validation-error checks.
 - Made pagination behavior regressions authoritative over model judges without
   enabling general execution of generated code.
+- Added machine-readable R01-R10 stable-release readiness assessment, immutable
+  evidence references, report validation, and a fail-closed
+  `--require-complete` CLI gate.
+- Added the 15-section world-class delivery and implementation plan.
+- Added a rolling-migration compatibility invariant after a real v7 trial
+  exposed premature constraint validation that broke old-version rollback.
+- Upgraded the Codex evaluation protocol to v8 and bound run manifests to the
+  optimizer Prompt hash and package version.
+- Prevented release validation from scanning generated artifacts, build output,
+  virtual environments, and third-party package files as project source.
+- Added explicit software-domain guardrails for missing-repository CLI work and
+  mixed-version migration writes after the v8 regressions.
+- Upgraded the Codex protocol to v9 and bound domain-profile content into the
+  immutable run configuration.
+- Fixed a software hard-check false positive that treated prose beginning with
+  "Pass" as a standalone placeholder statement, and advanced the protocol to
+  v10.
 
 ## 0.3.0 - 2026-06-12
 

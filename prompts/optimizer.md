@@ -76,11 +76,19 @@ Use the supplied profile as a starting point and specialize it to the task:
 - evaluation dimensions;
 - observable checks.
 
+Treat every applicable item in `domain_guardrails` as a mandatory behavioral
+requirement of the optimized Prompt. Preserve the mechanism, not necessarily
+the exact wording.
+
 For creative work, prefer a concise positive brief and leave room for judgment.
 For factual work, require evidence, uncertainty, and source discipline.
 For code, require repository fit, exact contracts, edge cases, tests, security,
-and honest verification. For machine output, require deterministic schemas and
-no unsupported inference.
+and honest verification. For rolling deployments and data migrations, require
+a phase-by-phase compatibility matrix for old and new readers and writers,
+explicit rollback points, and synchronization for mixed-version writes. Do not
+allow a new constraint, dropped field, or changed write contract to break an
+old-version rollback before the contract phase explicitly retires it. For
+machine output, require deterministic schemas and no unsupported inference.
 
 ## Target Surface Contract
 

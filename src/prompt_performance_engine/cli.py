@@ -38,6 +38,7 @@ from .human_review import (
     validate_submission,
 )
 from .profiles import load_profiles, resolve_profile
+from .readiness import assess_readiness, validate_readiness_report
 from .runtime import optimize
 from .service import (
     ArtifactStore,
@@ -247,6 +248,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_parser = subparsers.add_parser("validate-artifact")
     validate_parser.add_argument("artifact", type=Path)
+
+    readiness_parser = subparsers.add_parser("assess-readiness")
+    readiness_parser.add_argument("manifest", type=Path)
+    readiness_parser.add_argument("--root", type=Path)
+    readiness_parser.add_argument("-o", "--output", type=Path)
+    readiness_parser.add_argument(
+        "--require-complete",
+        action="store_true",
+        help="Return a failing exit code unless every stable-release gate passes.",
+    )
+
+    validate_readiness_parser = subparsers.add_parser("validate-readiness")
+    validate_readiness_parser.add_argument("report", type=Path)
     return parser
 
 
@@ -742,5 +756,31 @@ def main(argv: list[str] | None = None) -> int:
         }
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 1 if violations else 0
+
+    if args.command == "assess-readiness":
+        manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        root = (
+            args.root.resolve()
+            if args.root is not None
+            else args.manifest.resolve().parent
+        )
+        report = assess_readiness(manifest, root=root)
+        rendered = json.dumps(report, ensure_ascii=False, indent=2)
+        if args.output is not None:
+            args.output.write_text(rendered + "\n", encoding="utf-8")
+        print(rendered)
+        return int(args.require_complete and report["status"] != "complete")
+
+    if args.command == "validate-readiness":
+        report = json.loads(args.report.read_text(encoding="utf-8"))
+        failures = validate_readiness_report(report)
+        print(
+            json.dumps(
+                {"valid": not failures, "failures": failures},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1 if failures else 0
 
     raise AssertionError(f"Unhandled command: {args.command}")

@@ -41,3 +41,12 @@ acceptance evidence.
 
 Reason: descriptors, manifests, and file counts created misleading maturity in
 the legacy project.
+
+## ADR-007: Stable Completion Is Machine-Gated
+
+Decision: stable completion requires a hash-linked readiness manifest whose ten
+mandatory requirements all pass.
+
+Reason: implementation breadth, local tests, and favorable partial benchmarks
+cannot substitute for code execution, image review, expert review, independent
+reproduction, defect closure, and evidence-bound claims.

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/readiness-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "claim_ceiling",
+    "completion_metric",
+    "passed_requirement_count",
+    "requirement_count",
+    "completion_ratio",
+    "requirements",
+    "evidence_errors",
+    "readiness_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "status": {"enum": ["complete", "incomplete"]},
+    "claim_ceiling": {"enum": ["stable_v1", "optimized_candidate"]},
+    "completion_metric": {"const": "unweighted mandatory gate ratio"},
+    "passed_requirement_count": {"type": "integer", "minimum": 0, "maximum": 10},
+    "requirement_count": {"const": 10},
+    "completion_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+    "requirements": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "status", "evidence", "failures"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^R(0[1-9]|10)$"},
+          "title": {"type": "string", "minLength": 1},
+          "status": {"enum": ["passed", "partial", "missing", "failed"]},
+          "evidence": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "failures": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "evidence_errors": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "readiness_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

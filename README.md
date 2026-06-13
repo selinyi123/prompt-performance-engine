@@ -112,9 +112,12 @@ The catalog contains 12 domains, 60 substantive cases, and 12 adversarial
 cases. Definitions alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Its default is one
-optimization candidate. `--candidate-count 2..5` is experimental and does not
-by itself raise the evidence level.
+call caches, per-domain artifacts, and a summary. Protocol v10 binds the
+benchmark definition, optimizer Prompt hash, domain-profile hash, package
+version, model, and supported runtime controls. Its default is one optimization
+candidate.
+`--candidate-count 2..5` is experimental and does not by itself raise the
+evidence level.
 
 ## Local Service
 
@@ -128,6 +131,22 @@ The service is local-only, persistent, idempotent, restart-safe, and exposes
 `/health`, `/metrics`, `/v1/optimize`, `/v1/jobs/{id}`, and
 `/v1/artifacts/{id}`. Direct non-loopback binding is rejected.
 
+## Assess Stable-Release Readiness
+
+```powershell
+python -m prompt_performance_engine assess-readiness `
+  evidence\readiness-manifest.json `
+  --require-complete `
+  --output evidence\readiness-report.json
+python -m prompt_performance_engine validate-readiness `
+  evidence\readiness-report.json
+```
+
+The readiness gate checks ten mandatory evidence-backed requirements. Missing
+software execution, actual image review, expert review, independent
+reproduction, defect closure, or claims evidence blocks stable completion even
+when text benchmarks pass.
+
 ## Project Documents
 
 - `PRODUCT-SPEC.md`: final product definition and scope.
@@ -140,6 +159,8 @@ The service is local-only, persistent, idempotent, restart-safe, and exposes
 - `CHANGELOG.md`: behavior delivered by each release.
 - `SECURITY.md`: supported deployment and repository-grounded risks.
 - `MIGRATION.md`: legacy Prompt and audit import.
+- `WORLD-CLASS-DELIVERY-PLAN.md`: remaining architecture, implementation, and
+  evidence work required for stable completion.
 
 ## Honest Status
 

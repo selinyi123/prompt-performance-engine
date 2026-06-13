@@ -14,6 +14,21 @@ from .profiles import DomainProfile, resolve_profile
 OPTIMIZER_PROMPT_PATH = PACKAGE_ROOT / "prompts" / "optimizer.md"
 
 
+def domain_guardrails(profile_id: str) -> list[str]:
+    if profile_id == "software_engineering":
+        return [
+            "When an existing repository or CLI is referenced but its code is absent, "
+            "do not invent a replacement application, concrete existing exit codes, "
+            "or repository-specific APIs. Require an adaptable patch pattern, exact "
+            "behavioral tests, explicit integration points, and clearly marked assumptions.",
+            "For rolling deployments and data migrations, require an old/new "
+            "reader-writer compatibility matrix, mixed-version write synchronization, "
+            "and explicit rollback points. Do not enforce a constraint or remove a "
+            "field while an old writer or rollback target can still violate it.",
+        ]
+    return []
+
+
 def surface_contract(target_surface: str) -> dict[str, Any]:
     agent_surface = target_surface in {"agent", "coding_agent"}
     return {
@@ -102,6 +117,7 @@ def compile_request(request: OptimizationRequest) -> dict[str, Any]:
         "target_model": request.target_model,
         "audience": request.audience,
         "resolved_domain": profile.to_dict(),
+        "domain_guardrails": domain_guardrails(profile.id),
         "selected_architecture": architecture,
         "recovered_behavioral_contract": recover_behavioral_contract(
             request.source_prompt

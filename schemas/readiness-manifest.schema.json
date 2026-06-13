@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/readiness-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifacts", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path", "sha256"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "benchmark_summary",
+              "human_review",
+              "operational_verification",
+              "code_execution",
+              "image_review",
+              "expert_review_coverage",
+              "independent_reproduction",
+              "defect_register",
+              "claims_audit"
+            ]
+          },
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

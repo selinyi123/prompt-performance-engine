@@ -30,7 +30,8 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 92 tests passing.
+- Unit and behavior suite: 103 tests passing after the readiness and benchmark
+  hardening batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
@@ -62,7 +63,19 @@ All trials failed the domain gate. These negative results are retained under
 `artifacts/codex-benchmark*`; they are diagnostic evidence, not proof of
 improvement. v7 adds a configuration-locked run manifest, restores one
 candidate as the default, and records unsupported Codex CLI generation
-controls as null instead of claiming temperature, token, or seed settings.
+  controls as null instead of claiming temperature, token, or seed settings.
+  A fresh v7 trial again produced 4W/0T/1L with one fatal migration rollback
+  flaw. Protocol v8 binds the optimizer Prompt hash and package version and
+  adds the failed migration invariant as an optimizer regression rule.
+- The first v8 trial produced 2W/1T/2L with two fatal flaws: an invented
+  replacement CLI and stale data from unsynchronized old-version writes.
+  Protocol v9 promotes both boundaries into explicit software-domain
+  guardrails and also binds the domain-profile hash.
+- The v9 trial produced 4W/0T/1L, zero judge-reported fatal flaws, and one
+  deterministic critical regression. The critical regression was diagnosed as
+  a checker false positive: prose beginning with "Pass" matched the standalone
+  Python `pass` placeholder rule. Protocol v10 fixes and regression-tests that
+  matcher. A fresh v10 run is still required before the domain gate can pass.
 
 ## Implemented After v0.3, Gate Pending
 
@@ -79,6 +92,8 @@ controls as null instead of claiming temperature, token, or seed settings.
   configuration.
 - Experimental multi-candidate generation and blind Prompt selection.
 - Self-contained wheel data for version, optimizer Prompt, and domain profiles.
+- Machine-readable ten-requirement readiness assessment with immutable evidence
+  references and a fail-closed stable-release gate.
 
 These capabilities remain unreleased because roadmap versions advance only
 after their evidence gates, not merely after implementation.
@@ -99,3 +114,5 @@ after their evidence gates, not merely after implementation.
   insufficient for top-tier domain claims.
 - Four remaining software cases still lack safe executable or formal
   case-specific verification.
+- No complete readiness evidence manifest exists yet; current status therefore
+  remains incomplete regardless of implementation breadth.

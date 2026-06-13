@@ -35,6 +35,7 @@ REQUIRED_FILES = {
     "MIGRATION-PLAN.md",
     "DECISIONS.md",
     "IMPLEMENTATION-STATUS.md",
+    "WORLD-CLASS-DELIVERY-PLAN.md",
     "CHANGELOG.md",
     "SECURITY.md",
     "MIGRATION.md",
@@ -42,9 +43,27 @@ REQUIRED_FILES = {
     "profiles/domain_profiles.json",
     "schemas/optimization-request.schema.json",
     "schemas/optimization-artifact.schema.json",
+    "schemas/readiness-evidence.schema.json",
+    "schemas/readiness-manifest.schema.json",
+    "schemas/readiness-report.schema.json",
     "adversarial_cases/manifest.json",
     "benchmark/catalog-60.json",
 }
+GENERATED_ROOTS = {
+    ".git",
+    ".pytest_cache",
+    ".venv",
+    "artifacts",
+    "build",
+    "dist",
+}
+
+
+def is_release_source_path(path: Path) -> bool:
+    relative = path.relative_to(ROOT)
+    if any(part in GENERATED_ROOTS for part in relative.parts):
+        return False
+    return not any(part.endswith(".egg-info") for part in relative.parts)
 
 
 def main() -> int:
@@ -68,7 +87,11 @@ def main() -> int:
             failures.append(f"package version mismatch: {schema_path.name}")
 
     for path in ROOT.rglob("*"):
-        if path.is_file() and path.suffix.lower() in {".md", ".json", ".py", ".toml"}:
+        if (
+            path.is_file()
+            and is_release_source_path(path)
+            and path.suffix.lower() in {".md", ".json", ".py", ".toml"}
+        ):
             markers = find_mojibake(path.read_text(encoding="utf-8"))
             if markers:
                 failures.append(f"mojibake markers in {path.relative_to(ROOT)}: {markers}")
