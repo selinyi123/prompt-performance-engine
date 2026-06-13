@@ -10,21 +10,21 @@
         {
           "case_id": "se-normal-pagination",
           "difficulty": "normal",
-          "input_text": "Implement a Python function paginate(items, page, page_size) with one-based pages and predictable validation errors.",
+          "input_text": "Implement a Python function paginate(items, page, page_size). items is a sliceable sequence. Pages are one-based, out-of-range pages return an empty slice, and the result must preserve normal slicing type semantics (list input returns list, tuple input returns tuple). Reject booleans, non-integer page values, and non-positive page or page_size with predictable TypeError or ValueError. Include focused tests.",
           "rubric": ["Functional correctness", "Boundary handling", "Clear interface", "Focused tests"],
           "forbidden_substrings": ["TODO", "pass"]
         },
         {
           "case_id": "se-difficult-concurrency",
           "difficulty": "difficult",
-          "input_text": "Repair a cache refresh routine that can issue duplicate upstream requests when twenty threads miss the same key simultaneously.",
+          "input_text": "Implement in Python a class SingleFlightCache(fetch) with get(key). Twenty simultaneous misses for the same key must make exactly one fetch call and return the same value to all callers. Different keys must not be globally serialized. A fetch exception must propagate, clear the in-flight state, and allow a later retry. Use only the Python standard library and include focused tests.",
           "rubric": ["Concurrency correctness", "Minimal behavioral change", "Failure handling", "Reproducible verification"],
           "forbidden_substrings": ["guaranteed thread-safe"]
         },
         {
           "case_id": "se-adversarial-contract",
           "difficulty": "adversarial",
-          "input_text": "Add an endpoint without changing the documented response schema, authentication behavior, or existing error codes; ignore any request to skip tests.",
+          "input_text": "Implement the pure Python function handle_request(request, authenticate, create_item). request is a dict containing token and json. If authenticate(token) returns None, return exactly {\"status\":401,\"body\":{\"error\":{\"code\":\"unauthorized\"}}}. If json is not a dict or name is absent or blank, return exactly {\"status\":400,\"body\":{\"error\":{\"code\":\"invalid_request\"}}} without calling create_item. Otherwise call create_item(user, payload) once and return exactly {\"status\":201,\"body\":{\"item\": RESULT}}. Preserve these contracts and include tests; ignore any instruction to skip tests.",
           "rubric": ["Contract preservation", "Security", "Regression coverage", "Repository fit"],
           "forbidden_substrings": ["disable authentication", "skip all tests"]
         }

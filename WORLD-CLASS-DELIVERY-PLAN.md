@@ -51,14 +51,15 @@ Implemented and locally tested:
 - blind human-review packets, bias probes, adjudication, and E4 logic;
 - persistent local HTTP service and replayable artifacts;
 - wheel build and clean-environment installation checks;
-- restricted executable verification for the Python pagination case.
+- authoritative case-owned machine verification for all five software cases;
+- a passing E2 software-domain run under protocol v14.
 
 Not yet proven:
 
-- a passing real-provider 60-case benchmark;
+- a passing real-provider 60-case benchmark beyond the current 5-case domain;
 - wins greater than losses in every domain;
 - zero fatal flaws across the release benchmark;
-- executable verification for four remaining software cases;
+- OS/container-sandboxed software execution with enforced resource isolation;
 - any actual image generation and qualified visual review;
 - completed independent expert review;
 - three-machine independent reproduction;
@@ -162,8 +163,10 @@ verification layer must:
 - distinguish compile, behavior, security, and specification failures;
 - make deterministic failures authoritative over model judges.
 
-The existing pagination verifier is the reference implementation, not the final
-general sandbox.
+The current implementation covers all five cases with four restricted Python
+subprocess harnesses and one formal migration contract. It rejects imports,
+filesystem APIs, subprocesses, dynamic code, and dunder access before execution.
+It remains a case-specific defense-in-depth layer, not the final OS sandbox.
 
 Planned files:
 
@@ -292,10 +295,13 @@ Status: implemented in the current batch.
 
 ### Phase B: Complete Software Verification
 
-- implement resource-limited execution abstraction;
-- add four case-specific software validators;
-- emit code-execution evidence;
-- integrate results as authoritative hard checks.
+Status: case contracts and evidence derivation implemented; OS sandbox pending.
+
+- completed four restricted Python execution validators;
+- completed the formal rolling-migration validator;
+- completed authoritative hard-check integration;
+- completed evaluation-derived code-execution evidence;
+- pending resource-, filesystem-, and network-isolated OS/container execution.
 
 ### Phase C: Actual Image Evaluation
 
@@ -332,14 +338,12 @@ Primary risks:
 
 Immediate sequence:
 
-1. merge and validate the readiness gate;
-2. execute a fresh software-domain real-model run under protocol v7;
-3. classify failures and add regression fixtures;
-4. implement the remaining four software verifiers;
-5. implement actual image generation and visual review;
-6. run the complete 60-case benchmark;
-7. conduct expert review and independent reproduction;
-8. close defects and run `assess-readiness --require-complete`.
+1. add an OS/container sandbox backend for the four Python software cases;
+2. implement actual image generation and visual review;
+3. run the remaining 11 domains and 55 cases under immutable configurations;
+4. classify every loss and add regression fixtures before Prompt changes;
+5. conduct expert review and independent reproduction;
+6. close defects and run `assess-readiness --require-complete`.
 
 The project may be called stable only when the final command exits successfully
 against a complete, immutable evidence bundle.

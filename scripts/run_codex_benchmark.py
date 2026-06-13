@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import platform
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -38,6 +39,27 @@ from prompt_performance_engine.evidence import infer_evidence  # noqa: E402
 from prompt_performance_engine.hashing import hash_payload  # noqa: E402
 from prompt_performance_engine.runtime import optimize  # noqa: E402
 from prompt_performance_engine.validation import validate_artifact  # noqa: E402
+
+
+EVALUATION_IMPLEMENTATION_FILES = (
+    "scripts/run_codex_benchmark.py",
+    "src/prompt_performance_engine/case_checks.py",
+    "src/prompt_performance_engine/codex_evaluation.py",
+    "src/prompt_performance_engine/domain_checks.py",
+    "src/prompt_performance_engine/evaluation.py",
+    "src/prompt_performance_engine/software_execution.py",
+)
+
+
+def evaluation_implementation_sha256() -> str:
+    digest = hashlib.sha256()
+    for relative in EVALUATION_IMPLEMENTATION_FILES:
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        normalized = (ROOT / relative).read_text(encoding="utf-8")
+        digest.update(normalized.replace("\r\n", "\n").encode("utf-8"))
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
@@ -104,6 +126,9 @@ def build_run_configuration(
         "benchmark_definition_sha256": benchmark_definition_sha256,
         "optimizer_prompt_sha256": optimizer_prompt_sha256,
         "domain_profiles_sha256": domain_profiles_sha256,
+        "evaluation_implementation_sha256": evaluation_implementation_sha256(),
+        "python_version": platform.python_version(),
+        "platform_system": platform.system(),
         "package_version": PACKAGE_VERSION,
         "evaluation_protocol": EVALUATION_PROTOCOL,
         "model": model,
@@ -158,12 +183,22 @@ def build_summary(
     results: dict[str, dict[str, Any]],
     output_directory: Path,
 ) -> dict[str, Any]:
+    manifest_path = output_directory / "run-manifest.json"
+    run_configuration: dict[str, Any] = {}
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        candidate = manifest.get("configuration")
+        if isinstance(candidate, dict):
+            run_configuration = candidate
     wins = sum(result["wins"] for result in results.values())
     ties = sum(result["ties"] for result in results.values())
     losses = sum(result["losses"] for result in results.values())
     cases = sum(result["case_count"] for result in results.values())
     critical = sum(result["critical_regressions"] for result in results.values())
     fatal = sum(result["fatal_flaws"] for result in results.values())
+    optimized_hard_failures = sum(
+        result["optimized_hard_failures"] for result in results.values()
+    )
     all_domains_pass = bool(results) and all(
         result["gate_passed"] for result in results.values()
     )
@@ -174,6 +209,7 @@ def build_summary(
         and net_improvement >= 0.10
         and critical == 0
         and fatal == 0
+        and optimized_hard_failures == 0
     )
     evidence = infer_evidence(
         deterministic_checks_passed=True,
@@ -193,10 +229,16 @@ def build_summary(
         "net_improvement": net_improvement,
         "critical_regressions": critical,
         "fatal_flaws": fatal,
+        "optimized_hard_failures": optimized_hard_failures,
         "all_domains_pass": all_domains_pass,
         "aggregate_gate_passed": aggregate_gate,
         "evaluation_protocol": {
             "version": EVALUATION_PROTOCOL,
+            "implementation_sha256": run_configuration.get(
+                "evaluation_implementation_sha256"
+            ),
+            "python_version": run_configuration.get("python_version"),
+            "platform_system": run_configuration.get("platform_system"),
             "execution_model": "fixed per run",
             "temperature": "provider default; not configurable by Codex CLI",
             "max_tokens": "provider default; not configurable by Codex CLI",
@@ -217,6 +259,7 @@ def build_summary(
                     "losses",
                     "critical_regressions",
                     "fatal_flaws",
+                    "optimized_hard_failures",
                     "gate_passed",
                 )
             }
@@ -237,7 +280,7 @@ def main() -> int:
     parser.add_argument(
         "--output-directory",
         type=Path,
-        default=ROOT / "artifacts" / "codex-benchmark-v10",
+        default=ROOT / "artifacts" / "codex-benchmark-v15",
     )
     parser.add_argument("--model", default="gpt-5.5")
     parser.add_argument(

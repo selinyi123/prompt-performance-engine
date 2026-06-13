@@ -108,6 +108,38 @@ class EvaluationRuntimeTests(unittest.TestCase):
         self.assertFalse(result["gate_passed"])
         self.assertEqual(result["evidence"]["level"], "E1")
 
+    def test_both_outputs_failing_hard_checks_cannot_pass_gate(self):
+        cases = [
+            EvaluationCase(
+                case_id=f"hard-failure-{index}",
+                input_text=f"input-{index}",
+                rubric=("Correctness",),
+                required_substrings=("REQUIRED",),
+            )
+            for index in range(5)
+        ]
+        result = evaluate_suite(
+            suite_id="hard-failure-suite",
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            cases=cases,
+            executor=RecordedExecutor(
+                recorded_outputs(
+                    cases,
+                    original_output="missing",
+                    optimized_output="also missing but better",
+                )
+            ),
+            judges=[ContentJudge("judge-1"), ContentJudge("judge-2")],
+            config=ExecutionConfig(model="recorded-model"),
+        )
+
+        self.assertEqual(result["ties"], 5)
+        self.assertEqual(result["optimized_hard_failures"], 5)
+        self.assertFalse(result["gate_passed"])
+        self.assertEqual(result["evidence"]["level"], "E1")
+        self.assertEqual(validate_evaluation(result), [])
+
     def test_hard_regression_overrides_judges(self):
         case = EvaluationCase(
             case_id="hard-check",

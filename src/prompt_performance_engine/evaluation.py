@@ -401,11 +401,16 @@ def evaluate_suite(
     losses = sum(record["outcome"] == "loss" for record in records)
     critical_regressions = sum(record["critical_regression"] for record in records)
     fatal_flaws = sum(record["fatal_flaw"] for record in records)
+    optimized_hard_failures = sum(
+        record["hard_checks"]["optimized"]["passed"] is not True
+        for record in records
+    )
     gate_passed = (
         len(records) >= 5
         and wins > losses
         and critical_regressions == 0
         and fatal_flaws == 0
+        and optimized_hard_failures == 0
     )
     evidence: Evidence = infer_evidence(
         deterministic_checks_passed=True,
@@ -422,6 +427,7 @@ def evaluate_suite(
         "losses": losses,
         "critical_regressions": critical_regressions,
         "fatal_flaws": fatal_flaws,
+        "optimized_hard_failures": optimized_hard_failures,
         "gate_passed": gate_passed,
         "repeated_or_cross_model": repeated_or_cross_model,
         "evidence": asdict(evidence),
@@ -447,6 +453,7 @@ def validate_evaluation(result: Any) -> list[str]:
     outcomes: list[str] = []
     critical_count = 0
     fatal_count = 0
+    optimized_hard_failure_count = 0
     configs: set[str] = set()
     original_prompts: set[str] = set()
     optimized_prompts: set[str] = set()
@@ -485,6 +492,17 @@ def validate_evaluation(result: Any) -> list[str]:
         fatal = record.get("fatal_flaw") is True
         critical_count += critical
         fatal_count += fatal
+        hard_checks = record.get("hard_checks")
+        if not isinstance(hard_checks, dict):
+            failures.append(f"{case_id}: hard checks must be an object")
+            optimized_hard_failure_count += 1
+        else:
+            optimized_checks = hard_checks.get("optimized")
+            if (
+                not isinstance(optimized_checks, dict)
+                or optimized_checks.get("passed") is not True
+            ):
+                optimized_hard_failure_count += 1
         if critical and outcome != "loss":
             failures.append(f"{case_id}: critical regression must be a loss")
         if fatal and outcome != "loss":
@@ -503,6 +521,7 @@ def validate_evaluation(result: Any) -> list[str]:
         and wins > losses
         and critical_count == 0
         and fatal_count == 0
+        and optimized_hard_failure_count == 0
     )
     for field, expected in (
         ("case_count", len(records)),
@@ -511,6 +530,7 @@ def validate_evaluation(result: Any) -> list[str]:
         ("losses", losses),
         ("critical_regressions", critical_count),
         ("fatal_flaws", fatal_count),
+        ("optimized_hard_failures", optimized_hard_failure_count),
         ("gate_passed", expected_gate),
     ):
         if result.get(field) != expected:

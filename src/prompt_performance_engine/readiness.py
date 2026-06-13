@@ -304,6 +304,8 @@ def assess_readiness(
             quality_failures.append("critical regressions are present")
         if benchmark.get("fatal_flaws") != 0:
             quality_failures.append("fatal flaws are present")
+        if benchmark.get("optimized_hard_failures") != 0:
+            quality_failures.append("optimized outputs fail authoritative hard checks")
     requirements.append(
         _requirement(
             *REQUIREMENTS[3],

@@ -112,12 +112,29 @@ The catalog contains 12 domains, 60 substantive cases, and 12 adversarial
 cases. Definitions alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Protocol v10 binds the
+call caches, per-domain artifacts, and a summary. Protocol v15 binds the
 benchmark definition, optimizer Prompt hash, domain-profile hash, package
-version, model, and supported runtime controls. Its default is one optimization
-candidate.
+version, evaluation/verifier implementation hash, Python runtime, model, and
+supported runtime controls. Its default is one optimization candidate.
 `--candidate-count 2..5` is experimental and does not by itself raise the
 evidence level.
+
+All five software cases have authoritative case-owned verification. Four
+extract narrowly permitted Python definitions and run trusted hidden harnesses
+in isolated `python -I -S` subprocesses. The migration case validates an exact
+JSON compatibility contract. These checks override model judges on failure.
+They are not an OS or container sandbox.
+
+Create readiness evidence directly from a validated software evaluation. The
+command re-executes the five optimized outputs with the current verifier and
+records the verifier implementation hash:
+
+```powershell
+python -m prompt_performance_engine build-code-evidence `
+  artifacts\codex-benchmark-v14\software_engineering\evaluation.json `
+  --report-id codex-software-exec-v14-gpt-5.5 `
+  --output evidence\code-execution.json
+```
 
 ## Local Service
 
@@ -166,13 +183,18 @@ when text benchmarks pass.
 
 Current released status: `static_audit_and_evidence`.
 
-The working tree has contract-tested later-stage capabilities. Real
-`gpt-5.5` text-only software-engineering trials were run on 2026-06-13, but
-none passed the zero-fatal-flaw domain gate. The best trial was 4 wins and
-1 loss, with one fatal flaw. No independent human-review packet has been
-completed.
+The working tree has contract-tested later-stage capabilities. On 2026-06-13,
+protocol v14 ran five real `gpt-5.5` software-engineering cases and produced
+3 wins, 1 tie, and 1 loss. All five optimized outputs passed their authoritative
+machine checks, with zero critical regressions and zero fatal flaws. The scoped
+software-domain evaluation reached E2 and passed its domain gate.
 
-The current benchmark evaluates generated text. It does not yet execute
-generated code or render and review generated images. Therefore the project
-still does not claim runtime superiority, stable v1.0, production
+Protocol v15 adds source and runtime binding. Its first real run was blocked
+before generation by the Codex account usage limit, so v14 remains the latest
+completed model result rather than being relabeled as v15.
+
+The aggregate release gate remains false because only 1 of 12 domains and 5 of
+60 cases have current real-provider evidence. Generated images, independent
+expert review, OS-sandboxed code execution, and three-machine reproduction are
+still missing. Therefore the project does not claim stable v1.0, production
 certification, universal best, or award equivalence.

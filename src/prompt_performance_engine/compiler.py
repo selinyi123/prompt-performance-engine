@@ -25,6 +25,9 @@ def domain_guardrails(profile_id: str) -> list[str]:
             "reader-writer compatibility matrix, mixed-version write synchronization, "
             "and explicit rollback points. Do not enforce a constraint or remove a "
             "field while an old writer or rollback target can still violate it.",
+            "When a task defines a machine-readable output schema, preserve every "
+            "required top-level key, container type, field type, and ordering rule "
+            "exactly. Validate the final structure against that schema before responding.",
         ]
     return []
 

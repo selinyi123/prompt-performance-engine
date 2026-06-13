@@ -35,6 +35,12 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
         self.assertEqual(len(configuration["optimizer_prompt_sha256"]), 64)
         self.assertEqual(len(configuration["domain_profiles_sha256"]), 64)
         self.assertEqual(
+            len(configuration["evaluation_implementation_sha256"]),
+            64,
+        )
+        self.assertTrue(configuration["python_version"])
+        self.assertTrue(configuration["platform_system"])
+        self.assertEqual(
             configuration["package_version"],
             RUNNER.PACKAGE_VERSION,
         )
@@ -110,13 +116,23 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             "losses": 0,
             "critical_regressions": 0,
             "fatal_flaws": 0,
+            "optimized_hard_failures": 0,
             "gate_passed": True,
         }
         with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            RUNNER.ensure_run_manifest(
+                root,
+                {
+                    "evaluation_implementation_sha256": "b" * 64,
+                    "python_version": "3.13.0",
+                    "platform_system": "TestOS",
+                },
+            )
             summary = RUNNER.build_summary(
                 "suite",
                 {f"domain-{index}": result for index in range(12)},
-                Path(directory),
+                root,
             )
 
         self.assertTrue(summary["aggregate_gate_passed"])
@@ -126,6 +142,19 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             RUNNER.EVALUATION_PROTOCOL,
         )
         self.assertFalse(summary["evaluation_protocol"]["cross_model"])
+        self.assertEqual(
+            summary["evaluation_protocol"]["implementation_sha256"],
+            "b" * 64,
+        )
+        self.assertEqual(
+            summary["evaluation_protocol"]["python_version"],
+            "3.13.0",
+        )
+        self.assertEqual(
+            summary["evaluation_protocol"]["platform_system"],
+            "TestOS",
+        )
+        self.assertEqual(summary["optimized_hard_failures"], 0)
 
 
 if __name__ == "__main__":

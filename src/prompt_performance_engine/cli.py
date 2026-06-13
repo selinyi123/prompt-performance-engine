@@ -40,6 +40,7 @@ from .human_review import (
 from .profiles import load_profiles, resolve_profile
 from .readiness import assess_readiness, validate_readiness_report
 from .runtime import optimize
+from .software_evidence import build_code_execution_evidence
 from .service import (
     ArtifactStore,
     JobStore,
@@ -181,6 +182,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_evaluation_parser = subparsers.add_parser("validate-evaluation")
     validate_evaluation_parser.add_argument("evaluation", type=Path)
+
+    code_evidence_parser = subparsers.add_parser("build-code-evidence")
+    code_evidence_parser.add_argument("evaluation", type=Path)
+    code_evidence_parser.add_argument("--report-id", required=True)
+    code_evidence_parser.add_argument("-o", "--output", type=Path, required=True)
 
     review_packet_parser = subparsers.add_parser("create-review-packet")
     review_packet_parser.add_argument("evaluations", nargs="+", type=Path)
@@ -756,6 +762,32 @@ def main(argv: list[str] | None = None) -> int:
         }
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 1 if violations else 0
+
+    if args.command == "build-code-evidence":
+        evaluation = json.loads(args.evaluation.read_text(encoding="utf-8"))
+        report = build_code_execution_evidence(
+            evaluation,
+            report_id=args.report_id,
+        )
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(
+            json.dumps(
+                {
+                    "output": str(args.output),
+                    "eligible_cases": report["facts"]["eligible_cases"],
+                    "executed_cases": report["facts"]["executed_cases"],
+                    "passed_cases": report["facts"]["passed_cases"],
+                    "sandboxed": report["facts"]["sandboxed"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
 
     if args.command == "assess-readiness":
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))

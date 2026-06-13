@@ -46,6 +46,7 @@ def benchmark_summary() -> dict:
         "net_improvement": 0.6,
         "critical_regressions": 0,
         "fatal_flaws": 0,
+        "optimized_hard_failures": 0,
         "all_domains_pass": True,
         "aggregate_gate_passed": True,
         "usage": {"actual_model_calls": 100},

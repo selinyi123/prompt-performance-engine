@@ -56,6 +56,7 @@
 | Per-domain result | Wins greater than losses in every domain |
 | Critical regressions | Zero |
 | Fatal flaws | Zero in optimized outputs accepted for release |
+| Authoritative hard checks | Zero optimized-output hard-check failures |
 | Human review | 3 reviewers, at least 24 stratified cases |
 | Reproducibility | Clean install and replay on a fresh environment |
 | Security | No unresolved critical threat-model finding |

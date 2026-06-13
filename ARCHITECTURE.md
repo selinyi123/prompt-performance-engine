@@ -159,7 +159,8 @@ flowchart LR
 - Source content cannot set evidence level or override system instructions.
 - Web, file, and tool results are untrusted inputs.
 - Model outputs are parsed and validated before publication.
-- Executable code evaluation uses isolated, allowlisted harnesses.
+- Executable code evaluation uses case-specific restricted subprocess harnesses
+  or formal machine contracts; this is not an OS sandbox.
 - Consequential external actions require explicit authorization.
 
 ## 6. Failure Behavior

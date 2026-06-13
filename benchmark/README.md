@@ -24,14 +24,17 @@ python scripts\run_codex_benchmark.py --domains software_engineering
 
 Each output directory is bound to an immutable configuration manifest covering
 the parsed benchmark definition, model, reasoning effort, protocol, candidate
-count, and blind seed. A mismatched rerun is rejected instead of reusing stale
-evidence.
+count, blind seed, evaluation/verifier implementation hash, Python version, and
+platform. A mismatched rerun is rejected instead of reusing stale evidence.
 
-Current code and image cases are text-only proxies. Stable evidence for those
-domains additionally requires executable code checks and actual image
-generation with qualified visual review.
+All five software cases now have authoritative machine verification. Pagination,
+concurrency, endpoint-contract, and CLI outputs are reduced to named Python
+definitions through a strict AST allowlist and exercised by trusted hidden
+harnesses in isolated `python -I -S` subprocesses. The rolling-migration case
+must emit an exact JSON compatibility matrix and destructive sequencing
+contract.
 
-The `se-normal-pagination` case is the first exception: its fenced Python
-`paginate` function is extracted through a strict AST allowlist and checked
-against deterministic behavior and validation vectors. This is a narrow
-case verifier, not permission to execute arbitrary generated Python.
+These are narrow case verifiers, not permission to execute arbitrary generated
+Python and not proof of OS-level sandboxing. Image cases remain text-only
+proxies until matched image generation and qualified visual review are
+recorded.

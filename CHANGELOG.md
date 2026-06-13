@@ -50,6 +50,23 @@
 - Fixed a software hard-check false positive that treated prose beginning with
   "Pass" as a standalone placeholder statement, and advanced the protocol to
   v10.
+- Added authoritative machine verification for all five software cases: four
+  restricted Python subprocess harnesses and one formal migration JSON contract.
+- Added strict AST rejection for imports, dangerous builtins, dynamic calls,
+  dunder access and method definitions, and unapproved methods before candidate
+  execution.
+- Fixed the evaluation gate so optimized outputs with authoritative hard-check
+  failures cannot pass by tying equally broken original and optimized outputs.
+- Added aggregate `optimized_hard_failures` accounting to benchmark summaries,
+  validation, and stable-readiness assessment.
+- Added `build-code-evidence` to derive hashed R05 evidence directly from a
+  validated software evaluation.
+- Advanced the Codex software protocol through v14 and recorded a valid E2
+  software-domain result of 3W/1T/1L with zero optimized hard failures.
+- Advanced the runner to protocol v15 by binding the evaluation/verifier source
+  hash, Python version, and platform into immutable run manifests and summaries.
+- Changed code-evidence generation to re-execute all five optimized software
+  outputs with the current verifier and record its implementation hash.
 
 ## 0.3.0 - 2026-06-12
 

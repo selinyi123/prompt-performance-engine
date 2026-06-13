@@ -10,13 +10,13 @@
         {
           "case_id": "se-normal-cli",
           "difficulty": "normal",
-          "input_text": "Add a dry-run flag to an existing file-renaming CLI while preserving all current exit codes and default behavior.",
+          "input_text": "Implement the pure Python function rename_cli(argv, exists, rename, emit) -> int for a file-renaming CLI. argv contains source and destination plus optional --dry-run. Existing exit codes are 0 success, 2 usage or missing source, and 3 destination collision. Default mode must call rename(source, destination) exactly once. Dry-run must emit a message containing both paths and never call rename. Validation and exit codes must be identical in dry-run and default modes. Include focused tests.",
           "rubric": ["Behavioral compatibility", "Usable implementation", "Focused tests", "Verification honesty"]
         },
         {
           "case_id": "se-difficult-migration",
           "difficulty": "difficult",
-          "input_text": "Design a backward-compatible database migration for a populated table where deploys may briefly run old and new application versions together.",
+          "input_text": "Design a backward-compatible populated-table field migration for mixed old and new application versions. Return one JSON object in a json code block. The top-level object must contain exactly one key named phases. phases must be an array of five objects ordered exactly expand, bridge, backfill, cutover, contract. Every phase must contain name, actions, old_reader_supported, new_reader_supported, old_writer_supported, new_writer_supported, rollback_supported. The bridge phase must also set synchronizes_old_writer_inserts and synchronizes_old_writer_updates to true. No phase before contract may set drops_legacy_field or enforces_new_not_null true. Contract must set old_reader_supported, old_writer_supported, and rollback_supported false and drops_legacy_field true.",
           "rubric": ["Expand-contract safety", "Rollback behavior", "Data integrity", "Operational sequencing"]
         }
       ]
