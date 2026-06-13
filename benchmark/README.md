@@ -30,3 +30,8 @@ evidence.
 Current code and image cases are text-only proxies. Stable evidence for those
 domains additionally requires executable code checks and actual image
 generation with qualified visual review.
+
+The `se-normal-pagination` case is the first exception: its fenced Python
+`paginate` function is extracted through a strict AST allowlist and checked
+against deterministic behavior and validation vectors. This is a narrow
+case verifier, not permission to execute arbitrary generated Python.

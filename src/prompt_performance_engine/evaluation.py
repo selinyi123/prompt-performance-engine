@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol, Sequence
 
 from .evidence import Evidence, infer_evidence
+from .case_checks import run_case_checks
 from .domain_checks import run_domain_checks
 from .hashing import hash_payload, sha256_json
 
@@ -199,6 +200,7 @@ def _hard_checks(case: EvaluationCase, output: str) -> dict[str, Any]:
             }
         )
     checks.extend(run_domain_checks(case.domain, case.input_text, output))
+    checks.extend(run_case_checks(case.case_id, output))
     return {
         "passed": all(
             check["passed"]

@@ -40,6 +40,7 @@ Direct non-loopback binding is rejected by the CLI.
 | Prompt injection changes optimizer authority | Source is JSON-encoded inert data; deterministic adversarial audit | Novel semantic attacks may evade static patterns |
 | Credential leakage through logs/artifacts | Secrets read from environment; metadata excludes headers and response text; provider errors sanitized | A trusted external command can read files available to its OS account |
 | Arbitrary command execution through API | Command is fixed at service startup; shell is disabled; executable is allowlisted | Executable allowlisting is not an OS sandbox |
+| Model-generated code execution during evaluation | General model code is never executed by default; the pagination case extracts one named function through a strict AST allowlist and supplies empty builtins | The restricted checker is case-specific and is not a general Python sandbox |
 | Remote interception or brute force | Direct non-loopback binding rejected; optional constant-time bearer auth; rate limit | Reverse proxy configuration remains operator responsibility |
 | Artifact or evidence tampering | Canonical hashes, audit consistency checks, evaluation hashes, immutable manifests | Local administrator can replace both data and unsigned hashes |
 | Resource exhaustion | 1 MB request limit, bounded provider timeout/retry, command timeout, per-client rate limit | One worker can still be occupied by a permitted long request |
@@ -53,3 +54,8 @@ single-operator deployment. Internet-facing multi-user or multi-tenant
 operation is out of scope for `v0.x` and would require stronger authentication,
 authorization, TLS configuration, OS sandboxing, encrypted storage, quotas, and
 an independent penetration test.
+
+The case-specific pagination checker permits no imports, attributes, loops,
+recursion, comprehensions, dynamic calls, or unrestricted builtins. New
+executable case checks require an equally narrow interpreter or a real
+OS/container sandbox; ordinary subprocess isolation is not sufficient.

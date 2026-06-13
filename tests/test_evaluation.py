@@ -139,6 +139,55 @@ class EvaluationRuntimeTests(unittest.TestCase):
         self.assertEqual(record["judge_decisions"], [])
         self.assertEqual(judges[0].calls, [])
 
+    def test_case_behavior_regression_overrides_judges(self):
+        case = EvaluationCase(
+            case_id="se-normal-pagination",
+            input_text=(
+                "Implement a Python function paginate(items, page, page_size) "
+                "with one-based pages and predictable validation errors."
+            ),
+            rubric=("Correctness", "Boundary handling"),
+            domain="software_engineering",
+        )
+        original_output = """```python
+def paginate(items, page, page_size):
+    if not isinstance(page, int) or isinstance(page, bool):
+        raise TypeError("invalid page")
+    if not isinstance(page_size, int) or isinstance(page_size, bool):
+        raise TypeError("invalid page size")
+    if page < 1 or page_size < 1:
+        raise ValueError("values must be positive")
+    start = (page - 1) * page_size
+    return items[start:start + page_size]
+```"""
+        optimized_output = """```python
+def paginate(items, page, page_size):
+    return items[page * page_size:(page + 1) * page_size]
+```"""
+        executor = RecordedExecutor(
+            recorded_outputs(
+                [case],
+                original_output=original_output,
+                optimized_output=optimized_output,
+            )
+        )
+        judges = [
+            RecordedJudge([JudgeDecision("A", "unused")], name="judge-1"),
+            RecordedJudge([JudgeDecision("A", "unused")], name="judge-2"),
+        ]
+        record = evaluate_case(
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            case=case,
+            executor=executor,
+            judges=judges,
+            config=ExecutionConfig(model="recorded-model"),
+        )
+        self.assertEqual(record["outcome"], "loss")
+        self.assertTrue(record["critical_regression"])
+        self.assertEqual(record["judge_decisions"], [])
+        self.assertEqual(judges[0].calls, [])
+
     def test_tampered_record_fails_validation(self):
         cases = self.make_cases(5)
         result = evaluate_suite(

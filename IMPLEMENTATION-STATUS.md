@@ -30,10 +30,13 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 86 tests passing.
+- Unit and behavior suite: 92 tests passing.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
+- Software case verification: the Python pagination case uses restricted AST
+  extraction plus deterministic behavior and validation vectors; arbitrary
+  generated code is not executed.
 - Provider adapters: local contract tests cover request shape, retries,
   cancellation, timeout, command permissions, and usage capture.
 - Service: local integration tests cover HTTP auth, persistence, idempotency,
@@ -94,3 +97,5 @@ after their evidence gates, not merely after implementation.
 - Code cases need executable sandbox verification, and image cases need actual
   image generation plus qualified visual review; text-only proxies are
   insufficient for top-tier domain claims.
+- Four remaining software cases still lack safe executable or formal
+  case-specific verification.

@@ -29,6 +29,10 @@
 - Added Dependabot, a pull request template, and contribution guidance.
 - Fixed installed data discovery for standard virtual environments where wheel
   data files are placed under the environment data prefix.
+- Added a case-specific restricted Python verifier for the pagination benchmark,
+  including one-based behavior vectors and validation-error checks.
+- Made pagination behavior regressions authoritative over model judges without
+  enabling general execution of generated code.
 
 ## 0.3.0 - 2026-06-12
 
