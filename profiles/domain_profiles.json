@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0.0",
+  "profiles": [
+    {
+      "id": "generic",
+      "name": "General professional work",
+      "keywords": [],
+      "baseline_requirements": ["Clear objective", "Complete deliverable", "Constraint compliance"],
+      "professional_differentiators": ["Audience fit", "Specificity", "Usability", "Revision"],
+      "top_tier_differentiators": ["Distinctive judgment", "Coherent execution", "Observable quality control"],
+      "fatal_flaws": ["Changes the legitimate task", "Invents evidence", "Produces an unusable deliverable"],
+      "evaluation_dimensions": ["intent_fulfillment", "correctness_or_coherence", "audience_fit", "usability", "quality"],
+      "observable_checks": ["Requested deliverable is present", "Hard constraints are traceable", "Output is directly usable"]
+    },
+    {
+      "id": "software_engineering",
+      "name": "Software engineering",
+      "keywords": ["code", "python", "javascript", "typescript", "repository", "api", "bug", "test"],
+      "baseline_requirements": ["Correctness", "Exact interface", "Runnable result", "Error handling"],
+      "professional_differentiators": ["Repository fit", "Maintainability", "Focused tests", "Security"],
+      "top_tier_differentiators": ["Minimal blast radius", "Executable acceptance criteria", "Robust edge cases", "Reproducible verification"],
+      "fatal_flaws": ["Non-runnable code", "Contract violation", "Security regression", "False test claim"],
+      "evaluation_dimensions": ["functional_correctness", "edge_cases", "api_contract", "maintainability", "security", "verification"],
+      "observable_checks": ["Code parses or compiles", "Acceptance tests are executable", "Public interfaces remain compatible"]
+    },
+    {
+      "id": "research_analysis",
+      "name": "Research and analysis",
+      "keywords": ["research", "analyze", "evidence", "sources", "study", "report", "compare"],
+      "baseline_requirements": ["Precise question", "Relevant evidence", "Fact-inference separation"],
+      "professional_differentiators": ["Source quality", "Counterevidence", "Transparent method", "Decision relevance"],
+      "top_tier_differentiators": ["Strong synthesis", "Calibrated uncertainty", "Reproducibility", "Novel but defensible insight"],
+      "fatal_flaws": ["Fabricated sources", "Hidden assumptions", "False certainty", "Unsupported causal claim"],
+      "evaluation_dimensions": ["question_fit", "evidence_quality", "method", "synthesis", "uncertainty", "decision_value"],
+      "observable_checks": ["Sources can be traced", "Facts and inference are labeled", "Uncertainty changes conclusions appropriately"]
+    },
+    {
+      "id": "professional_writing",
+      "name": "Professional and editorial writing",
+      "keywords": ["article", "essay", "story", "feature", "write", "copy", "magazine"],
+      "baseline_requirements": ["Correct form", "Audience fit", "Coherent structure", "Factual integrity"],
+      "professional_differentiators": ["Voice", "Specificity", "Rhythm", "Narrative or argumentative progression"],
+      "top_tier_differentiators": ["Distinctive insight", "Structural control", "Memorable language", "Earned ending"],
+      "fatal_flaws": ["Invented reporting", "Cliches replacing thought", "Wrong genre", "Generic filler"],
+      "evaluation_dimensions": ["intent", "structure", "specificity", "voice", "integrity", "polish"],
+      "observable_checks": ["Required form and length are met", "Claims are supported by supplied material", "Generic filler can be identified and removed"]
+    },
+    {
+      "id": "image_generation",
+      "name": "Image-generation prompting",
+      "keywords": ["image", "poster", "photo", "illustration", "render", "camera", "aspect ratio"],
+      "baseline_requirements": ["Subject fidelity", "Composition", "Format", "Required exclusions"],
+      "professional_differentiators": ["Focal hierarchy", "Lighting", "Material specificity", "Style coherence"],
+      "top_tier_differentiators": ["Distinctive visual logic", "Production-ready spatial direction", "Controlled negative space", "Conflict-free specificity"],
+      "fatal_flaws": ["Changes subject", "Contradictory composition", "Ignores exact copy", "Adds prohibited logos or text"],
+      "evaluation_dimensions": ["brief_fidelity", "composition", "specificity", "style", "constraints", "negative_control"],
+      "observable_checks": ["Subject and aspect ratio are explicit", "Focal hierarchy is unambiguous", "Required exclusions are stated without contradiction"]
+    },
+    {
+      "id": "creative_design",
+      "name": "Creative design direction",
+      "keywords": ["design", "identity", "branding", "packaging", "campaign", "typography", "visual system"],
+      "baseline_requirements": ["Brief fulfillment", "Governing concept", "Deliverable coverage"],
+      "professional_differentiators": ["System coherence", "Production rules", "Accessibility", "Adaptability"],
+      "top_tier_differentiators": ["Ownable concept", "Original visual logic", "Cross-format consistency", "Responsible execution"],
+      "fatal_flaws": ["Derivative imitation", "Moodboard-only answer", "Inaccessible system", "Unexecutable direction"],
+      "evaluation_dimensions": ["brief", "concept", "originality", "system", "production", "responsibility"],
+      "observable_checks": ["Concept governs multiple deliverables", "Production rules can be applied", "Accessibility and imitation risks are addressed"]
+    },
+    {
+      "id": "business_strategy",
+      "name": "Business and strategy",
+      "keywords": ["strategy", "business", "market", "revenue", "growth", "product", "roadmap", "company"],
+      "baseline_requirements": ["Decision definition", "Explicit assumptions", "Prioritized recommendation"],
+      "professional_differentiators": ["Alternatives", "Tradeoffs", "Risks", "Metrics", "Sequencing"],
+      "top_tier_differentiators": ["Second-order effects", "Reversible learning plan", "Defensible strategic logic", "Clear decision gates"],
+      "fatal_flaws": ["Invented market facts", "No prioritization", "Impossible guarantee", "Ignores critical constraints"],
+      "evaluation_dimensions": ["intent", "evidence", "depth", "decision_usability", "risk", "clarity"],
+      "observable_checks": ["Recommendation is prioritized", "Assumptions and tradeoffs are explicit", "Decision gates have measurable signals"]
+    },
+    {
+      "id": "structured_data",
+      "name": "Structured data and extraction",
+      "keywords": ["extract", "structured data", "json schema", "csv", "xml", "parse", "classification"],
+      "baseline_requirements": ["Exact schema", "Field completeness", "Type correctness", "Deterministic null handling"],
+      "professional_differentiators": ["Boundary examples", "Normalization rules", "Unsupported-inference policy", "Stable ordering"],
+      "top_tier_differentiators": ["Machine-verifiable contract", "Lossless provenance", "Explicit confidence semantics", "Adversarial input handling"],
+      "fatal_flaws": ["Invalid syntax", "Invented values", "Schema drift", "Commentary outside the contract"],
+      "evaluation_dimensions": ["schema_validity", "field_accuracy", "completeness", "normalization", "provenance", "determinism"],
+      "observable_checks": ["Output parses against the schema", "Missing values follow one policy", "No undeclared fields are emitted"]
+    },
+    {
+      "id": "marketing_sales",
+      "name": "Marketing and sales",
+      "keywords": ["marketing", "sales", "campaign", "conversion", "landing page", "email sequence", "positioning"],
+      "baseline_requirements": ["Audience and offer clarity", "Truthful claims", "Channel fit", "Clear call to action"],
+      "professional_differentiators": ["Objection handling", "Message hierarchy", "Variant strategy", "Measurement plan"],
+      "top_tier_differentiators": ["Distinctive positioning", "Evidence-backed persuasion", "Lifecycle coherence", "Testable creative hypotheses"],
+      "fatal_flaws": ["Deceptive claim", "Generic audience", "Unsupported urgency", "No conversion path"],
+      "evaluation_dimensions": ["audience_fit", "positioning", "persuasion", "specificity", "channel_fit", "measurement"],
+      "observable_checks": ["Every claim has support", "CTA matches funnel stage", "Variants isolate a meaningful hypothesis"]
+    },
+    {
+      "id": "education",
+      "name": "Education and learning design",
+      "keywords": ["lesson", "curriculum", "teach", "student", "learning objective", "quiz", "training"],
+      "baseline_requirements": ["Learner level", "Measurable objective", "Accurate content", "Aligned assessment"],
+      "professional_differentiators": ["Scaffolding", "Worked examples", "Misconception handling", "Feedback design"],
+      "top_tier_differentiators": ["Adaptive pathways", "Transfer tasks", "Inclusive pedagogy", "Retention-aware sequencing"],
+      "fatal_flaws": ["Assessment misalignment", "Uncorrected misconception", "Inaccessible instruction", "Answer leakage"],
+      "evaluation_dimensions": ["accuracy", "alignment", "scaffolding", "engagement", "inclusion", "assessment_quality"],
+      "observable_checks": ["Objectives use observable verbs", "Practice precedes assessment", "Feedback explains why an answer is wrong"]
+    },
+    {
+      "id": "translation_localization",
+      "name": "Translation and localization",
+      "keywords": ["translate", "translation", "localize", "localization", "glossary", "locale", "transcreation"],
+      "baseline_requirements": ["Meaning fidelity", "Target-locale fluency", "Terminology consistency", "Format preservation"],
+      "professional_differentiators": ["Register control", "Cultural adaptation", "Placeholder safety", "Ambiguity reporting"],
+      "top_tier_differentiators": ["Voice equivalence", "Locale-specific usability", "Constraint-aware transcreation", "Reversible terminology decisions"],
+      "fatal_flaws": ["Meaning inversion", "Broken placeholders", "Unapproved omission", "Locale mismatch"],
+      "evaluation_dimensions": ["fidelity", "fluency", "terminology", "register", "localization", "format_integrity"],
+      "observable_checks": ["Placeholders are unchanged", "Glossary terms are consistent", "Ambiguities are flagged rather than guessed"]
+    },
+    {
+      "id": "agents_automation",
+      "name": "Agents and automation",
+      "keywords": ["agent", "automation", "workflow", "tool call", "browser", "orchestrate", "approval"],
+      "baseline_requirements": ["Explicit goal", "Tool boundaries", "State handling", "Failure behavior"],
+      "professional_differentiators": ["Idempotency", "Permission checks", "Retry policy", "Observable progress"],
+      "top_tier_differentiators": ["Recoverable plans", "Least-privilege actions", "Human approval gates", "Replayable traces"],
+      "fatal_flaws": ["Unauthorized action", "Secret exposure", "Unbounded retry", "False success state"],
+      "evaluation_dimensions": ["goal_completion", "tool_correctness", "safety", "recovery", "observability", "efficiency"],
+      "observable_checks": ["Consequential actions require approval", "Retries are bounded", "Final status matches external state"]
+    },
+    {
+      "id": "high_risk_advisory",
+      "name": "High-risk advisory work",
+      "keywords": ["medical advice", "legal advice", "financial advice", "diagnosis", "prescription", "compliance", "security assessment"],
+      "baseline_requirements": ["Scope limitation", "Uncertainty disclosure", "Qualified-review boundary", "Emergency escalation"],
+      "professional_differentiators": ["Jurisdiction or context sensitivity", "Evidence quality", "Alternative options", "Risk prioritization"],
+      "top_tier_differentiators": ["Decision-specific safeguards", "Calibrated confidence", "Traceable authority", "Actionable escalation thresholds"],
+      "fatal_flaws": ["Unsafe definitive instruction", "Missing emergency boundary", "Fabricated authority", "Personalized guarantee"],
+      "evaluation_dimensions": ["safety", "scope", "evidence", "uncertainty", "actionability", "escalation"],
+      "observable_checks": ["Advice states its scope", "Red flags trigger escalation", "Professional review is required where consequential"]
+    }
+  ]
+}

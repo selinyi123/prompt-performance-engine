@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0.0",
+  "suite_id": "cross-domain-60-v1",
+  "includes": [
+    "core-18.json",
+    "extension-42.json"
+  ]
+}

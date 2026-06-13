@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/evaluation-recorded-run.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite_id",
+    "job_id",
+    "execution_config",
+    "outputs",
+    "judges"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "suite_id": {"type": "string", "minLength": 1},
+    "job_id": {"type": "string", "minLength": 1},
+    "blind_seed": {"type": "integer"},
+    "execution_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model"],
+      "properties": {
+        "model": {"type": "string", "minLength": 1},
+        "temperature": {"type": "number"},
+        "max_tokens": {"type": "integer", "minimum": 1},
+        "seed": {"type": ["integer", "null"]}
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "original", "optimized"],
+        "properties": {
+          "case_id": {"type": "string"},
+          "original": {"type": "string"},
+          "optimized": {"type": "string"}
+        }
+      }
+    },
+    "judges": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "decisions"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "decisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["winner", "reason"],
+              "properties": {
+                "winner": {"enum": ["A", "B", "tie"]},
+                "reason": {"type": "string", "minLength": 1},
+                "fatal_flaw_a": {"type": "boolean"},
+                "fatal_flaw_b": {"type": "boolean"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

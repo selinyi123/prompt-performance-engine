@@ -1,0 +1,1 @@
+Use the previous audit score as the baseline and compare with last score. The delta should prove this version improved.

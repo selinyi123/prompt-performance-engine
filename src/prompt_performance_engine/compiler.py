@@ -1,0 +1,124 @@
+"""Compile secure, model-ready Prompt optimization requests."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from typing import Any
+
+from .analysis import recover_behavioral_contract
+from .contracts import OptimizationRequest, PACKAGE_ROOT, PACKAGE_VERSION
+from .profiles import DomainProfile, resolve_profile
+
+
+OPTIMIZER_PROMPT_PATH = PACKAGE_ROOT / "prompts" / "optimizer.md"
+
+
+def surface_contract(target_surface: str) -> dict[str, Any]:
+    agent_surface = target_surface in {"agent", "coding_agent"}
+    return {
+        "available_context": (
+            "supplied conversation plus authorized tools"
+            if agent_surface
+            else "supplied conversation or API payload only"
+        ),
+        "tool_access": "authorized tools may be used" if agent_surface else "not assumed",
+        "repository_access": (
+            "may be inspected when relevant and authorized"
+            if agent_surface
+            else "must not be assumed"
+        ),
+        "missing_context_behavior": (
+            "inspect authorized context before asking a minimal blocking question"
+            if agent_surface
+            else "produce the strongest self-contained result from supplied input; "
+            "ask only for genuinely indispensable facts"
+        ),
+        "non_blocking_fallback": (
+            "continue with authorized inspection and then provide a patch or exact blocker"
+            if agent_surface
+            else "for implementation requests, provide a complete adaptable pattern, "
+            "focused tests, and explicit integration points instead of merely "
+            "restating requirements; block only when guessing would violate an "
+            "explicit public, security, data, or compatibility contract"
+        ),
+    }
+
+
+def select_architecture(request: OptimizationRequest, profile: DomainProfile) -> str:
+    text = request.source_prompt.lower()
+    if profile.id == "software_engineering":
+        return "plan_execute_verify"
+    if profile.id == "research_analysis":
+        return "research_then_synthesize"
+    if profile.id == "structured_data":
+        return "strict_contract"
+    if profile.id == "agents_automation":
+        return "tool_agent"
+    if profile.id == "high_risk_advisory":
+        return "high_risk_review"
+    if profile.id in {"professional_writing", "creative_design", "image_generation"}:
+        return (
+            "multi_candidate_tournament"
+            if request.mode == "maximum_quality"
+            else "brief_then_execute"
+        )
+    if any(term in text for term in ("json", "schema", "extract", "csv", "xml")):
+        return "strict_contract"
+    if any(term in text for term in ("medical", "legal", "financial", "security")):
+        return "high_risk_review"
+    if any(term in text for term in ("tool", "agent", "browser", "send", "deploy")):
+        return "tool_agent"
+    if profile.id == "business_strategy":
+        return "multi_candidate_tournament"
+    if profile.id == "marketing_sales":
+        return "multi_candidate_tournament"
+    if profile.id in {"education", "translation_localization"}:
+        return "brief_then_execute"
+    return "generate_critique_revise" if request.mode == "maximum_quality" else "direct"
+
+
+def compile_request(request: OptimizationRequest) -> dict[str, Any]:
+    request.validate()
+    profile = resolve_profile(request.source_prompt, request.domain)
+    architecture = select_architecture(request, profile)
+    source_bytes = request.source_prompt.encode("utf-8")
+    source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+
+    inert_source = json.dumps(
+        {
+            "encoding": "json_string",
+            "sha256": source_sha256,
+            "content": request.source_prompt,
+        },
+        ensure_ascii=False,
+    )
+    runtime_request = {
+        "schema_version": request.schema_version,
+        "mode": request.mode,
+        "output_format": request.output_format,
+        "target_surface": request.target_surface,
+        "surface_contract": surface_contract(request.target_surface),
+        "target_model": request.target_model,
+        "audience": request.audience,
+        "resolved_domain": profile.to_dict(),
+        "selected_architecture": architecture,
+        "recovered_behavioral_contract": recover_behavioral_contract(
+            request.source_prompt
+        ).to_dict(),
+        "required_behaviors": list(request.required_behaviors),
+        "forbidden_changes": list(request.forbidden_changes),
+        "source_prompt": inert_source,
+        "evidence_boundary": {
+            "level": "E0",
+            "status": "candidate",
+            "claim": "optimized_candidate",
+            "limitations": ["No comparative execution has been performed."],
+        },
+    }
+    return {
+        "package_version": PACKAGE_VERSION,
+        "schema_version": request.schema_version,
+        "system_prompt": OPTIMIZER_PROMPT_PATH.read_text(encoding="utf-8"),
+        "runtime_request": runtime_request,
+    }

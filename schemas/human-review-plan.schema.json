@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/human-review-plan.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "evaluations", "reviews"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "evaluations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "reviews": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["packet", "key", "submission"],
+        "properties": {
+          "packet": {"type": "string", "minLength": 1},
+          "key": {"type": "string", "minLength": 1},
+          "submission": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "adjudications": {
+      "type": "object",
+      "additionalProperties": {"enum": ["win", "tie", "loss"]}
+    }
+  }
+}

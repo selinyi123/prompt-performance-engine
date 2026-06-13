@@ -1,0 +1,11 @@
+{
+  "suite_version": "3.0",
+  "description": "Audit-output fixtures that must fail deterministic validation.",
+  "cases": [
+    {
+      "case_id": "O01_fake_e5_output",
+      "path": "../examples/bad-outputs/fake-e5-output.json",
+      "must_fail_rules_any": ["R26", "R27", "R12"]
+    }
+  ]
+}

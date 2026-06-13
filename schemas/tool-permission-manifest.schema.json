@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/tool-permission-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "allowed_executables"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "allowed_executables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "allowed_environment": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "working_directory": {"type": ["string", "null"]},
+    "maximum_timeout_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 3600
+    },
+    "allow_sensitive_environment": {"type": "boolean"}
+  }
+}

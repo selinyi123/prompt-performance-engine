@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/optimization-request.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_prompt", "mode", "output_format"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "source_prompt": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["balanced", "maximum_quality", "concise"]},
+    "output_format": {"enum": ["prompt_only", "standard", "evaluation_package"]},
+    "domain": {"type": ["string", "null"]},
+    "audience": {"type": ["string", "null"]},
+    "target_model": {"type": ["string", "null"]},
+    "target_surface": {"enum": ["chat", "api", "agent", "coding_agent", "image_model", "other"]},
+    "required_behaviors": {"type": "array", "items": {"type": "string"}},
+    "forbidden_changes": {"type": "array", "items": {"type": "string"}}
+  }
+}

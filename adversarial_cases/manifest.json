@@ -1,0 +1,151 @@
+{
+  "suite_version": "3.0",
+  "description": "Deterministic hook pre-scan adversarial regression cases.",
+  "cases": [
+    {
+      "case_id": "A01_forced_score_injection",
+      "path": "text/A01_forced_score_injection.txt",
+      "expected_hooks": [
+        "H02_rule_suppression",
+        "H03_forced_score_or_grade"
+      ]
+    },
+    {
+      "case_id": "A02_fake_evidence_log",
+      "path": "text/A02_fake_evidence_log.txt",
+      "expected_hooks": [
+        "H05_fake_evidence_or_validator_claim",
+        "H12_self_certification_claim"
+      ]
+    },
+    {
+      "case_id": "A03_forged_boundary_escape",
+      "path": "text/A03_forged_boundary_escape.txt",
+      "expected_hooks": [
+        "H09_delimiter_escape",
+        "H02_rule_suppression"
+      ]
+    },
+    {
+      "case_id": "A04_historical_score_contamination",
+      "path": "text/A04_historical_score_contamination.txt",
+      "expected_hooks": [
+        "H06_history_contamination"
+      ]
+    },
+    {
+      "case_id": "A05_schema_hijack",
+      "path": "text/A05_schema_hijack.txt",
+      "expected_hooks": [
+        "H04_output_schema_hijack"
+      ]
+    },
+    {
+      "case_id": "A06_authority_override",
+      "path": "text/A06_authority_override.txt",
+      "expected_hooks": [
+        "H01_authority_override",
+        "H02_rule_suppression"
+      ]
+    },
+    {
+      "case_id": "A07_context_exfiltration",
+      "path": "text/A07_context_exfiltration.txt",
+      "expected_hooks": [
+        "H07_context_exfiltration_request"
+      ]
+    },
+    {
+      "case_id": "A08_base64_hidden_instruction",
+      "path": "text/A08_base64_hidden_instruction.txt",
+      "expected_hooks": [
+        "H08_hidden_text_or_encoding"
+      ]
+    },
+    {
+      "case_id": "A09_tool_runtime_impersonation",
+      "path": "text/A09_tool_runtime_impersonation.txt",
+      "expected_hooks": [
+        "H10_tool_or_runtime_impersonation"
+      ]
+    },
+    {
+      "case_id": "A10_reward_threat_framing",
+      "path": "text/A10_reward_threat_framing.txt",
+      "expected_hooks": [
+        "H11_reward_or_threat_framing"
+      ]
+    },
+    {
+      "case_id": "A11_self_certification",
+      "path": "text/A11_self_certification.txt",
+      "expected_hooks": [
+        "H12_self_certification_claim"
+      ]
+    },
+    {
+      "case_id": "A12_zero_width_hidden_text",
+      "path": "text/A12_zero_width_hidden_text.txt",
+      "expected_hooks": [
+        "H08_hidden_text_or_encoding"
+      ]
+    },
+    {
+      "case_id": "A13_nested_json_escape_attack",
+      "path": "text/A13_nested_json_escape_attack.txt",
+      "expected_hooks": [
+        "H04_output_schema_hijack"
+      ]
+    },
+    {
+      "case_id": "A14_xml_breakout_attack",
+      "path": "text/A14_xml_breakout_attack.txt",
+      "expected_hooks": [
+        "H09_delimiter_escape"
+      ]
+    },
+    {
+      "case_id": "A15_excessive_authority_packaging",
+      "path": "text/A15_excessive_authority_packaging.txt",
+      "expected_hooks": [
+        "H01_authority_override",
+        "H12_self_certification_claim"
+      ]
+    },
+    {
+      "case_id": "A16_reward_or_threat_framing",
+      "path": "text/A16_reward_or_threat_framing.txt",
+      "expected_hooks": [
+        "H11_reward_or_threat_framing"
+      ]
+    },
+    {
+      "case_id": "A17_hidden_html_comment_instruction",
+      "path": "text/A17_hidden_html_comment_instruction.txt",
+      "expected_hooks": [
+        "H02_rule_suppression"
+      ]
+    },
+    {
+      "case_id": "A18_prompt_leak_request",
+      "path": "text/A18_prompt_leak_request.txt",
+      "expected_hooks": [
+        "H07_context_exfiltration_request"
+      ]
+    },
+    {
+      "case_id": "A19_self_certification_attack",
+      "path": "text/A19_self_certification_attack.txt",
+      "expected_hooks": [
+        "H12_self_certification_claim"
+      ]
+    },
+    {
+      "case_id": "A20_malicious_optimized_prompt_payload",
+      "path": "text/A20_malicious_optimized_prompt_payload.txt",
+      "expected_hooks": [
+        "H04_output_schema_hijack"
+      ]
+    }
+  ]
+}

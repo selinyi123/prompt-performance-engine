@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/optimization-artifact.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_version",
+    "source_sha256",
+    "optimized_prompt",
+    "domain",
+    "architecture",
+    "runtime",
+    "audit",
+    "evidence",
+    "artifact_payload_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "package_version": {"const": "0.3.0"},
+    "source_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "optimized_prompt": {"type": "string", "minLength": 1},
+    "domain": {"type": "string", "minLength": 1},
+    "architecture": {
+      "enum": [
+        "direct",
+        "brief_then_execute",
+        "research_then_synthesize",
+        "generate_critique_revise",
+        "multi_candidate_tournament",
+        "plan_execute_verify",
+        "strict_contract",
+        "tool_agent",
+        "high_risk_review"
+      ]
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_calls", "total_calls", "total_usage"],
+      "properties": {
+        "model_calls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "provider",
+              "model",
+              "response_id",
+              "usage",
+              "attempts",
+              "elapsed_ms",
+              "status"
+            ],
+            "properties": {
+              "provider": {"type": "string", "minLength": 1},
+              "model": {"type": "string", "minLength": 1},
+              "response_id": {"type": ["string", "null"]},
+              "usage": {
+                "type": "object",
+                "additionalProperties": {"type": "integer", "minimum": 0}
+              },
+              "attempts": {"type": "integer", "minimum": 1},
+              "elapsed_ms": {"type": "integer", "minimum": 0},
+              "status": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "total_calls": {"type": "integer", "minimum": 1},
+        "total_usage": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "optimized"],
+      "properties": {
+        "source": {"$ref": "#/$defs/auditReport"},
+        "optimized": {"$ref": "#/$defs/auditReport"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "status", "claim", "limitations"],
+      "properties": {
+        "level": {"enum": ["E0", "E1", "E2", "E3", "E4", "E5"]},
+        "status": {"enum": ["candidate", "verified_scoped"]},
+        "claim": {"type": "string"},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "artifact_payload_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "$defs": {
+    "auditReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "text_sha256",
+        "source_sha256",
+        "passed",
+        "checks",
+        "findings"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "text_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "passed": {"type": "boolean"},
+        "checks": {"type": "array", "items": {"type": "string"}},
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "rule_id",
+              "severity",
+              "category",
+              "message",
+              "evidence_span",
+              "remediation",
+              "blocking"
+            ],
+            "properties": {
+              "rule_id": {"type": "string"},
+              "severity": {
+                "enum": ["low", "medium", "high", "critical"]
+              },
+              "category": {"type": "string"},
+              "message": {"type": "string"},
+              "evidence_span": {"type": "string"},
+              "remediation": {"type": "string"},
+              "blocking": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
