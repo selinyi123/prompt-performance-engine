@@ -1,5 +1,7 @@
 # Prompt Performance Engine
 
+[![CI](https://github.com/selinyi123/prompt-performance-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/selinyi123/prompt-performance-engine/actions/workflows/ci.yml)
+
 Prompt Performance Engine is a clean successor to the existing Universal Prompt
 Optimizer and Prompt Evidence-Based Audit Engine experiments.
 

@@ -5,16 +5,27 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+import sysconfig
 from typing import Any
 
 
 MODULE_ROOT = Path(__file__).resolve().parent
 SOURCE_ROOT = MODULE_ROOT.parents[1]
-INSTALLED_DATA_ROOT = MODULE_ROOT.parent / "prompt_performance_engine_data"
+INSTALLED_DATA_ROOTS = (
+    MODULE_ROOT.parent / "prompt_performance_engine_data",
+    Path(sysconfig.get_path("data")) / "prompt_performance_engine_data",
+)
 PACKAGE_ROOT = (
     SOURCE_ROOT
     if (SOURCE_ROOT / "VERSION").is_file()
-    else INSTALLED_DATA_ROOT
+    else next(
+        (
+            candidate
+            for candidate in INSTALLED_DATA_ROOTS
+            if (candidate / "VERSION").is_file()
+        ),
+        INSTALLED_DATA_ROOTS[0],
+    )
 )
 try:
     PACKAGE_VERSION = version("prompt-performance-engine")

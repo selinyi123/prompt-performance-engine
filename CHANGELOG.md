@@ -23,6 +23,12 @@
   domain profiles as installable data files.
 - Stopped recording unsupported Codex CLI temperature, maximum-token, and
   generation-seed controls as if they had been applied.
+- Added GitHub Actions CI across Python 3.11, 3.12, and 3.13, including release
+  validation, wheel construction, standard-venv installation, and artifact
+  upload.
+- Added Dependabot, a pull request template, and contribution guidance.
+- Fixed installed data discovery for standard virtual environments where wheel
+  data files are placed under the environment data prefix.
 
 ## 0.3.0 - 2026-06-12
 

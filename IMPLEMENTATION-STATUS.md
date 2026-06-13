@@ -30,7 +30,7 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 85 tests passing.
+- Unit and behavior suite: 86 tests passing.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
@@ -38,8 +38,9 @@ Status date: 2026-06-13
   cancellation, timeout, command permissions, and usage capture.
 - Service: local integration tests cover HTTP auth, persistence, idempotency,
   atomic artifacts, and restart recovery.
-- Packaging: wheel installation into a clean local target loads the packaged
-  optimizer Prompt, all 13 profiles, compiler, and CLI audit successfully.
+- Packaging: wheel installation into both a clean target directory and a
+  standard virtual environment loads the packaged optimizer Prompt, all 13
+  profiles, compiler, and CLI audit successfully.
 - Runtime superiority: tested in one text-only domain but not proven; claim
   remains `optimized_candidate`.
 
