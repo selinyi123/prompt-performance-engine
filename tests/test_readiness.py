@@ -1,7 +1,10 @@
 import hashlib
 import json
+import binascii
+import struct
 import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
 from prompt_performance_engine.hashing import hash_payload
@@ -19,6 +22,39 @@ def write_json(path: Path, payload: dict) -> str:
         encoding="utf-8",
     )
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def write_png(path: Path, phase: int) -> dict:
+    width = height = 256
+    rows = bytearray()
+    for y in range(height):
+        rows.append(0)
+        for x in range(width):
+            rows.extend(((x + phase) % 256, (y * 3) % 256, (x + y) % 256))
+
+    def chunk(name: bytes, payload: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(payload))
+            + name
+            + payload
+            + struct.pack(">I", binascii.crc32(name + payload) & 0xFFFFFFFF)
+        )
+
+    path.write_bytes(
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(
+            b"IHDR",
+            struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0),
+        )
+        + chunk(b"IDAT", zlib.compress(bytes(rows)))
+        + chunk(b"IEND", b"")
+    )
+    return {
+        "path": path.name,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "width": width,
+        "height": height,
+    }
 
 
 def benchmark_summary() -> dict:
@@ -101,6 +137,27 @@ class ReadinessTests(unittest.TestCase):
             human_review(),
         )
 
+        image_cases = []
+        for index in range(5):
+            baseline = write_png(root / f"baseline-{index}.png", index)
+            optimized = write_png(root / f"optimized-{index}.png", index + 20)
+            image_cases.append(
+                {
+                    "case_id": f"image-{index}",
+                    "baseline": {
+                        **baseline,
+                        "call_id": f"baseline-call-{index}",
+                    },
+                    "optimized": {
+                        **optimized,
+                        "call_id": f"optimized-call-{index}",
+                    },
+                    "review_count": 3,
+                    "consensus": "win",
+                    "mean_optimized_score_delta": 1.0,
+                }
+            )
+
         reports = {
             "operational_verification": {
                 "behavior_tests_passed": True,
@@ -140,6 +197,11 @@ class ReadinessTests(unittest.TestCase):
                 "generated_cases": 5,
                 "reviewed_cases": 5,
                 "qualified_reviewers": 3,
+                "blind": True,
+                "asset_integrity_verified": True,
+                "review_coverage_verified": True,
+                "unresolved_cases": [],
+                "cases": image_cases,
             },
             "expert_review_coverage": {
                 "domains": [

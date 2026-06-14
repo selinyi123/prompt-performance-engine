@@ -37,6 +37,15 @@ from .human_review import (
     create_reviewer_packet,
     validate_submission,
 )
+from .image_review import (
+    aggregate_visual_review,
+    build_generation_manifest,
+    build_reviewer_profile,
+    create_visual_review_packet,
+    deliver_visual_review_assets,
+    validate_generation_manifest,
+    validate_visual_submission,
+)
 from .profiles import load_profiles, resolve_profile
 from .readiness import assess_readiness, validate_readiness_report
 from .runtime import optimize
@@ -49,6 +58,14 @@ from .service import (
     create_http_server,
 )
 from .validation import validate_artifact
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -211,6 +228,56 @@ def build_parser() -> argparse.ArgumentParser:
     review_aggregate_parser = subparsers.add_parser("aggregate-human-review")
     review_aggregate_parser.add_argument("plan", type=Path)
     review_aggregate_parser.add_argument("-o", "--output", type=Path, required=True)
+
+    image_manifest_parser = subparsers.add_parser(
+        "register-image-generations"
+    )
+    image_manifest_parser.add_argument("plan", type=Path)
+    image_manifest_parser.add_argument("-o", "--output", type=Path, required=True)
+
+    image_packet_parser = subparsers.add_parser(
+        "create-visual-review-packet"
+    )
+    image_packet_parser.add_argument("manifest", type=Path)
+    image_packet_parser.add_argument("--reviewer", required=True)
+    image_packet_parser.add_argument("--seed", type=int, default=0)
+    image_packet_parser.add_argument("--packet", type=Path, required=True)
+    image_packet_parser.add_argument("--key", type=Path, required=True)
+
+    image_profile_parser = subparsers.add_parser(
+        "create-visual-reviewer-profile"
+    )
+    image_profile_parser.add_argument("--reviewer", required=True)
+    image_profile_parser.add_argument("--experience-years", type=int, required=True)
+    image_profile_parser.add_argument(
+        "--domain",
+        action="append",
+        dest="domains",
+        required=True,
+    )
+    image_profile_parser.add_argument(
+        "--independent",
+        action="store_true",
+        required=True,
+    )
+    image_profile_parser.add_argument(
+        "--conflict-disclosed",
+        action="store_true",
+        required=True,
+    )
+    image_profile_parser.add_argument("-o", "--output", type=Path, required=True)
+
+    image_validate_parser = subparsers.add_parser(
+        "validate-visual-review-submission"
+    )
+    image_validate_parser.add_argument("packet", type=Path)
+    image_validate_parser.add_argument("submission", type=Path)
+
+    image_aggregate_parser = subparsers.add_parser(
+        "aggregate-visual-review"
+    )
+    image_aggregate_parser.add_argument("plan", type=Path)
+    image_aggregate_parser.add_argument("-o", "--output", type=Path, required=True)
 
     serve_openai_parser = subparsers.add_parser("serve-openai")
     serve_openai_parser.add_argument("--model", required=True)
@@ -387,10 +454,7 @@ def main(argv: list[str] | None = None) -> int:
         response = args.mock_response.read_text(encoding="utf-8")
         result = optimize(request, MockSequenceAdapter([response]))
         if args.artifact:
-            args.artifact.write_text(
-                json.dumps(result.artifact, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            _write_json(args.artifact, result.artifact)
         print(result.optimized_prompt)
         return 0
 
@@ -410,10 +474,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         result = optimize(request, adapter)
         if args.artifact:
-            args.artifact.write_text(
-                json.dumps(result.artifact, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            _write_json(args.artifact, result.artifact)
         print(result.optimized_prompt)
         return 0
 
@@ -438,10 +499,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
         )
         if args.artifact:
-            args.artifact.write_text(
-                json.dumps(result.artifact, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            _write_json(args.artifact, result.artifact)
         print(result.optimized_prompt)
         return 0
 
@@ -462,10 +520,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
         )
         if args.artifact:
-            args.artifact.write_text(
-                json.dumps(result.artifact, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            _write_json(args.artifact, result.artifact)
         print(result.optimized_prompt)
         return 0
 
@@ -753,6 +808,140 @@ def main(argv: list[str] | None = None) -> int:
                     "reviewers": report["reviewer_count"],
                     "cases": report["reviewed_case_count"],
                     "evidence": report["evidence"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "register-image-generations":
+        plan = json.loads(args.plan.read_text(encoding="utf-8"))
+        root = args.plan.resolve().parent
+        if args.output.resolve().parent != root:
+            raise ValueError(
+                "Image generation manifest must be written beside its plan "
+                "so relative asset paths remain stable."
+            )
+        manifest = build_generation_manifest(plan, root=root)
+        args.output.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(
+            json.dumps(
+                {
+                    "output": str(args.output),
+                    "cases": len(manifest["cases"]),
+                    "actual_generation": manifest["actual_generation"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "create-visual-review-packet":
+        manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        packet, key = create_visual_review_packet(
+            manifest,
+            root=args.manifest.resolve().parent,
+            reviewer_id=args.reviewer,
+            seed=args.seed,
+        )
+        delivered = deliver_visual_review_assets(
+            key,
+            source_root=args.manifest.resolve().parent,
+            packet_root=args.packet.resolve().parent,
+        )
+        for path, payload in ((args.packet, packet), (args.key, key)):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        print(
+            json.dumps(
+                {
+                    "packet": str(args.packet),
+                    "key": str(args.key),
+                    "items": len(packet["items"]),
+                    "delivered_assets": len(delivered),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "create-visual-reviewer-profile":
+        profile = build_reviewer_profile(
+            args.reviewer,
+            visual_review_experience_years=args.experience_years,
+            relevant_domains=args.domains,
+            independent=args.independent,
+            conflict_disclosed=args.conflict_disclosed,
+        )
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            json.dumps(profile, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(profile["profile_sha256"])
+        return 0
+
+    if args.command == "validate-visual-review-submission":
+        packet = json.loads(args.packet.read_text(encoding="utf-8"))
+        submission = json.loads(args.submission.read_text(encoding="utf-8"))
+        failures = validate_visual_submission(packet, submission)
+        print(
+            json.dumps(
+                {"valid": not failures, "failures": failures},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1 if failures else 0
+
+    if args.command == "aggregate-visual-review":
+        plan = json.loads(args.plan.read_text(encoding="utf-8"))
+        if plan.get("schema_version") != "1.0.0":
+            raise ValueError("Unsupported visual-review plan schema.")
+        root = args.plan.resolve().parent
+
+        def load_visual(relative: str) -> dict:
+            path = (root / relative).resolve()
+            try:
+                path.relative_to(root)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Visual-review path escapes plan root: {relative}"
+                ) from exc
+            return json.loads(path.read_text(encoding="utf-8"))
+
+        reviews = plan.get("reviews", [])
+        manifest = load_visual(plan["generation_manifest"])
+        report = aggregate_visual_review(
+            manifest,
+            [load_visual(review["packet"]) for review in reviews],
+            [load_visual(review["key"]) for review in reviews],
+            [load_visual(review["submission"]) for review in reviews],
+            [load_visual(review["profile"]) for review in reviews],
+            root=root,
+            report_id=str(plan["report_id"]),
+        )
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(
+            json.dumps(
+                {
+                    "output": str(args.output),
+                    "generated_cases": report["facts"]["generated_cases"],
+                    "reviewed_cases": report["facts"]["reviewed_cases"],
+                    "qualified_reviewers": report["facts"]["qualified_reviewers"],
                 },
                 ensure_ascii=False,
                 indent=2,

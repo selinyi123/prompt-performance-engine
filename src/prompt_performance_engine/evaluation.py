@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol, Sequence
 
@@ -163,6 +164,36 @@ class RecordedJudge:
         return decision
 
 
+def _contains_unnegated_forbidden(output: str, forbidden: str) -> bool:
+    """Distinguish requested content from an explicit negative constraint."""
+    lowered = output.casefold()
+    target = forbidden.casefold()
+    start = 0
+    while True:
+        index = lowered.find(target, start)
+        if index < 0:
+            return False
+        clause_start = max(
+            lowered.rfind(mark, 0, index) for mark in (".", ";", ":", "\n")
+        )
+        context = lowered[clause_start + 1 : index]
+        negation = re.search(
+            r"\b(?:no|without|avoid(?:ing)?|exclude\w*|reject\w*|"
+            r"(?:do|must|should)\s+not)\b",
+            context,
+        )
+        if negation is None:
+            return True
+        scope = context[negation.end() :]
+        if re.search(
+            r"\b(?:but|except|however|include\w*|add\w*|show\w*|"
+            r"depict\w*|feature\w*)\b",
+            scope,
+        ):
+            return True
+        start = index + len(target)
+
+
 def _hard_checks(case: EvaluationCase, output: str) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     for required in case.required_substrings:
@@ -178,7 +209,10 @@ def _hard_checks(case: EvaluationCase, output: str) -> dict[str, Any]:
             {
                 "check": "forbidden_substring",
                 "value": forbidden,
-                "passed": forbidden not in output,
+                "passed": not _contains_unnegated_forbidden(
+                    output,
+                    forbidden,
+                ),
             }
         )
     if case.require_json:

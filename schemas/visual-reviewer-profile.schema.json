@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/visual-reviewer-profile.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reviewer_id",
+    "qualification",
+    "profile_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "reviewer_id": {"type": "string", "minLength": 1},
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visual_review_experience_years",
+        "relevant_domains",
+        "independent",
+        "conflict_disclosed"
+      ],
+      "properties": {
+        "visual_review_experience_years": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "relevant_domains": {
+          "type": "array",
+          "contains": {"const": "image_generation"}
+        },
+        "independent": {"const": true},
+        "conflict_disclosed": {"const": true}
+      }
+    },
+    "profile_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

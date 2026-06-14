@@ -7,6 +7,7 @@ from prompt_performance_engine.evaluation import (
     JudgeDecision,
     RecordedExecutor,
     RecordedJudge,
+    _hard_checks,
     evaluate_case,
     evaluate_suite,
     validate_evaluation,
@@ -45,6 +46,34 @@ class ContentJudge:
 
 
 class EvaluationRuntimeTests(unittest.TestCase):
+    def test_forbidden_image_content_allows_explicit_negative_constraint(self):
+        case = EvaluationCase(
+            case_id="image-negative",
+            input_text="Create a product image without branding.",
+            rubric=("Subject", "Composition", "Constraint compliance"),
+            domain="image_generation",
+            forbidden_substrings=("logo", "robot", "daylight"),
+        )
+        checks = _hard_checks(
+            case,
+            "Wide night scene. No text, logos, literal robots, or daylight.",
+        )
+        self.assertTrue(checks["passed"])
+
+    def test_forbidden_image_content_still_rejects_positive_inclusion(self):
+        case = EvaluationCase(
+            case_id="image-positive",
+            input_text="Create a product image without branding.",
+            rubric=("Subject", "Composition", "Constraint compliance"),
+            domain="image_generation",
+            forbidden_substrings=("logo",),
+        )
+        checks = _hard_checks(
+            case,
+            "No text, but include a prominent logo on the product.",
+        )
+        self.assertFalse(checks["passed"])
+
     def make_cases(self, count):
         return [
             EvaluationCase(

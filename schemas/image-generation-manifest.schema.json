@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/image-generation-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite_id",
+    "generator",
+    "actual_generation",
+    "cases",
+    "generation_manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "suite_id": {"type": "string", "minLength": 1},
+    "generator": {
+      "type": "object",
+      "required": ["provider", "model"],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "settings": {"type": "object"}
+      }
+    },
+    "actual_generation": {"const": true},
+    "cases": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "input_text",
+          "rubric",
+          "baseline",
+          "optimized"
+        ],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "input_text": {"type": "string"},
+          "rubric": {
+            "type": "array",
+            "minItems": 3,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "baseline": {"$ref": "#/$defs/asset"},
+          "optimized": {"$ref": "#/$defs/asset"}
+        }
+      }
+    },
+    "generation_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "required": [
+        "prompt",
+        "prompt_sha256",
+        "path",
+        "call_id",
+        "mime_type",
+        "width",
+        "height",
+        "byte_count",
+        "sha256"
+      ],
+      "properties": {
+        "prompt": {"type": "string", "minLength": 1},
+        "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "path": {"type": "string", "minLength": 1},
+        "call_id": {"type": "string", "minLength": 1},
+        "mime_type": {"const": "image/png"},
+        "width": {"type": "integer", "minimum": 256},
+        "height": {"type": "integer", "minimum": 256},
+        "byte_count": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

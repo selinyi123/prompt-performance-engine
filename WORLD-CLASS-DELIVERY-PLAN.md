@@ -60,10 +60,10 @@ Not yet proven:
 - wins greater than losses in every domain;
 - zero fatal flaws across the release benchmark;
 - independent reproduction of the local OS/container sandbox evidence;
-- any actual image generation and qualified visual review;
+- qualified independent review of the completed matched image generation;
 - completed independent expert review;
 - three-machine independent reproduction;
-- artifact-backed P0/P1 closure and public-claim audit.
+- a fully artifact-bound public-claim audit.
 
 ## 4. Product Boundary and User Journeys
 
@@ -307,9 +307,11 @@ Status: locally complete; independent reproduction pending.
 
 ### Phase C: Actual Image Evaluation
 
-- add provider adapter and matched generation records;
-- add blinded image-review packets;
-- run five image cases;
+- completed matched generation records and strict PNG verification;
+- completed blinded image-review packets and submission validation;
+- generated and validated all 10 assets for the first five-case matched run;
+- generated three independently randomized blind-review packets;
+- pending three qualified independent visual-review submissions;
 - emit qualified image-review evidence.
 
 ### Phase D: Full Real Benchmark
@@ -340,7 +342,7 @@ Primary risks:
 
 Immediate sequence:
 
-1. implement actual image generation and visual review;
+1. collect and validate three qualified independent visual-review submissions;
 2. run the remaining 11 domains and 55 cases under immutable configurations;
 3. classify every loss and add regression fixtures before Prompt changes;
 4. conduct expert review and independent reproduction;

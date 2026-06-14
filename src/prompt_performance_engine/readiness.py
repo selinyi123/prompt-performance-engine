@@ -399,6 +399,20 @@ def assess_readiness(
             image_failures.append("not all generated images were reviewed")
         if int(image.get("qualified_reviewers", 0)) < 3:
             image_failures.append("fewer than three qualified visual reviewers")
+        if image.get("blind") is not True:
+            image_failures.append("visual review was not blind")
+        if image.get("asset_integrity_verified") is not True:
+            image_failures.append("image asset integrity is not verified")
+        if image.get("review_coverage_verified") is not True:
+            image_failures.append("image review coverage is not verified")
+        if image.get("unresolved_cases"):
+            image_failures.append("visual-review disagreements remain unresolved")
+        if not image_failures:
+            from .image_review import validate_image_evidence_assets
+
+            image_failures.extend(
+                validate_image_evidence_assets(image, root=root)
+            )
     requirements.append(
         _requirement(
             *REQUIREMENTS[5],

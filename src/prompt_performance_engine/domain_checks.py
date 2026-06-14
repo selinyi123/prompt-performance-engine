@@ -93,11 +93,33 @@ def _writing(input_text: str, output: str) -> list[dict[str, Any]]:
 
 
 def _image(input_text: str, output: str) -> list[dict[str, Any]]:
-    ratios = set(re.findall(r"(?i)\b(?:square|vertical|portrait|wide|landscape)\b", output))
+    ratios: set[str] = set()
+    for match in re.finditer(
+        r"(?i)\b(?:square|vertical|portrait|wide|landscape)\b",
+        output,
+    ):
+        clause_start = max(
+            output.rfind(mark, 0, match.start()) for mark in (".", ";", ":", "\n")
+        )
+        context = output[clause_start + 1 : match.start()]
+        if re.search(
+            r"(?i)\b(?:no|without|avoid(?:ing)?|exclude\w*|reject\w*|"
+            r"(?:do|must|should)\s+not)\b",
+            context,
+        ):
+            continue
+        direction = match.group(0).lower()
+        ratios.add(
+            "landscape"
+            if direction in {"wide", "landscape"}
+            else "portrait"
+            if direction in {"vertical", "portrait"}
+            else "square"
+        )
     return [
         _check(
             "image_no_multiple_aspect_directions",
-            len({ratio.lower() for ratio in ratios}) <= 1,
+            len(ratios) <= 1,
             detail="Image Prompt must not contain conflicting aspect-ratio directions.",
         )
     ]

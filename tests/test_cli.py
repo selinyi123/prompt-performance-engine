@@ -35,6 +35,31 @@ class CliTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertEqual(stdout.getvalue().strip(), "Complete optimized Prompt.")
 
+    def test_optimize_creates_artifact_parent_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prompt = root / "prompt.txt"
+            response = root / "response.md"
+            artifact = root / "nested" / "artifact.json"
+            prompt.write_text("Write a report.", encoding="utf-8")
+            response.write_text(
+                "## Optimized Prompt\n\n```text\nComplete optimized Prompt.\n```",
+                encoding="utf-8",
+            )
+            with redirect_stdout(io.StringIO()):
+                exit_code = main(
+                    [
+                        "optimize",
+                        str(prompt),
+                        "--mock-response",
+                        str(response),
+                        "--artifact",
+                        str(artifact),
+                    ]
+                )
+            self.assertEqual(exit_code, 0)
+            self.assertTrue(artifact.is_file())
+
     def test_external_command_end_to_end(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

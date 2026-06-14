@@ -61,6 +61,22 @@ class DomainCheckTests(unittest.TestCase):
         )
         self.assertTrue(checks[0]["passed"])
 
+    def test_image_negative_crop_does_not_create_aspect_conflict(self):
+        checks = run_domain_checks(
+            "image_generation",
+            "Create a wide night scene and reject a square crop.",
+            "Wide 16:9 cinematic scene. No daylight and no square crop.",
+        )
+        self.assertTrue(checks[0]["passed"])
+
+    def test_image_two_positive_aspect_directions_fail(self):
+        checks = run_domain_checks(
+            "image_generation",
+            "Create one coherent image.",
+            "Use a wide landscape composition and also a square crop.",
+        )
+        self.assertFalse(checks[0]["passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

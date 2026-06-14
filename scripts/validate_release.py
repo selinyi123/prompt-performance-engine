@@ -36,6 +36,7 @@ REQUIRED_FILES = {
     "DECISIONS.md",
     "IMPLEMENTATION-STATUS.md",
     "WORLD-CLASS-DELIVERY-PLAN.md",
+    "IMAGE-REVIEW-PROTOCOL.md",
     "CHANGELOG.md",
     "SECURITY.md",
     "MIGRATION.md",
@@ -46,6 +47,10 @@ REQUIRED_FILES = {
     "schemas/readiness-evidence.schema.json",
     "schemas/readiness-manifest.schema.json",
     "schemas/readiness-report.schema.json",
+    "schemas/image-generation-manifest.schema.json",
+    "schemas/visual-review-packet.schema.json",
+    "schemas/visual-review-submission.schema.json",
+    "schemas/visual-reviewer-profile.schema.json",
     "adversarial_cases/manifest.json",
     "benchmark/catalog-60.json",
 }

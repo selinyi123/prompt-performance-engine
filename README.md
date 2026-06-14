@@ -182,6 +182,8 @@ when text benchmarks pass.
 - `CHANGELOG.md`: behavior delivered by each release.
 - `SECURITY.md`: supported deployment and repository-grounded risks.
 - `SOFTWARE-SANDBOX.md`: executable-evaluation isolation contract.
+- `IMAGE-REVIEW-PROTOCOL.md`: actual image generation and blind visual-review
+  evidence contract.
 - `MIGRATION.md`: legacy Prompt and audit import.
 - `WORLD-CLASS-DELIVERY-PLAN.md`: remaining architecture, implementation, and
   evidence work required for stable completion.
@@ -201,8 +203,9 @@ before generation by the Codex account usage limit, so v14 remains the latest
 completed model result rather than being relabeled as v15.
 
 The aggregate release gate remains false because only 1 of 12 domains and 5 of
-60 cases have current real-provider evidence. Generated images, independent
-expert review, and three-machine reproduction are still missing. Local
-OS/container-sandbox evidence now exists for the software cases, but has not
+60 cases have completed real-provider evidence. The first image run has all 10
+matched assets, but no qualified independent visual-review submissions yet.
+Independent expert review and three-machine reproduction are also missing.
+Local OS/container-sandbox evidence exists for the software cases, but has not
 yet been independently reproduced. Therefore the project does not claim stable
 v1.0, production certification, universal best, or award equivalence.

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Added actual PNG registration, matched image generation manifests,
+  randomized blind visual-review packets, qualified-reviewer profiles, rubric
+  scoring, and hash-linked R06 evidence aggregation.
+- Hardened image evidence against corrupt pixels, replaced files, incomplete
+  reviews, unqualified reviewers, and tampered submissions.
+- Fixed forbidden-content and aspect-ratio checks so explicit negative image
+  constraints such as `no logos` and `no square crop` are not false failures.
+- Fixed all optimization CLI paths to create artifact parent directories before
+  writing completed model results.
 - Added a digest-pinned Docker execution backend for software benchmark
   harnesses with no network, read-only root, non-root identity, dropped
   capabilities, `no-new-privileges`, and PID/memory/CPU limits.

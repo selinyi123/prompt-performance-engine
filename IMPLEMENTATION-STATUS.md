@@ -30,7 +30,7 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 132 tests passing after the software execution,
+- Unit and behavior suite: 147 tests passing after the image evidence,
   evidence derivation, and benchmark gate hardening batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
@@ -118,6 +118,9 @@ candidate as the default, and records unsupported Codex CLI generation
   validated authoritative software hard checks.
 - A fixed Docker sandbox policy plus a dedicated CI job that executes its
   isolation, timeout, and out-of-memory integration tests.
+- Actual-image registration with PNG structural/pixel verification, matched
+  baseline-versus-optimized assets, randomized blind visual-review packets,
+  qualified-reviewer profiles, rubric scoring, and hash-linked R06 evidence.
 
 These capabilities remain unreleased because roadmap versions advance only
 after their evidence gates, not merely after implementation.
@@ -135,7 +138,8 @@ after their evidence gates, not merely after implementation.
   independent-machine or independent-operator reproduction.
 - Local R05 Docker isolation evidence is complete; independent-machine and
   independent-operator reproduction remains pending.
-- Image cases need actual image generation plus qualified visual review;
-  text-only proxies are insufficient for top-tier domain claims.
-- No complete readiness evidence manifest exists yet; current status therefore
-  remains incomplete regardless of implementation breadth.
+- The first matched image run has all 10 required assets generated and
+  validated. Three qualified independent visual reviewers remain before R06
+  can pass.
+- The current readiness manifest validates, but only 4 of 10 mandatory gates
+  pass; stable-release status therefore remains incomplete.
