@@ -30,7 +30,7 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 147 tests passing after the image evidence,
+- Unit and behavior suite: 154 tests passing after the image evidence,
   evidence derivation, and benchmark gate hardening batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
@@ -92,10 +92,12 @@ candidate as the default, and records unsupported Codex CLI generation
   The aggregate release gate remains false because only 5 of 60 cases and 1 of
   12 domains are complete.
 - Protocol v15 additionally binds the evaluation/verifier implementation hash,
-  Python version, and platform. Its first run was blocked before generation by
-  the Codex account usage limit. The v14 optimized outputs were independently
-  re-executed by the current verifier and still pass 5/5, with the current
-  verifier hash recorded in R05 evidence.
+  Python version, and platform. Protocol v16 expands that binding to the whole
+  Python package and runner, adds concurrency-safe atomic summaries, and emits
+  hashed quota/adapter failure evidence. The first v16 run is temporarily
+  blocked by the Codex account usage limit until June 15, 2026 at 02:17 local
+  time. The v14 optimized outputs were independently re-executed by the current
+  verifier and still pass 5/5, with the verifier hash recorded in R05 evidence.
 
 ## Implemented After v0.3, Gate Pending
 
@@ -110,6 +112,10 @@ candidate as the default, and records unsupported Codex CLI generation
 - Target-surface capability contracts and deliverable-kind recovery.
 - Resumable Codex benchmark execution with durable caches and immutable run
   configuration.
+- Concrete benchmark payload contracts: all research, structured-data,
+  translation/localization, and agent-automation cases, plus four
+  source-dependent writing cases, now include executable source packets or
+  simulated tool traces. Abstract placeholder descriptions fail validation.
 - Experimental multi-candidate generation and blind Prompt selection.
 - Self-contained wheel data for version, optimizer Prompt, and domain profiles.
 - Machine-readable ten-requirement readiness assessment with immutable evidence

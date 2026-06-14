@@ -12,6 +12,7 @@ from unittest.mock import patch
 from prompt_performance_engine.adapters import (
     AdapterCancelled,
     AdapterError,
+    AdapterQuotaError,
     CancellationToken,
     CodexExecAdapter,
     ExternalCommandAdapter,
@@ -227,6 +228,38 @@ class ExternalCommandAdapterTests(unittest.TestCase):
 
 
 class CodexExecAdapterTests(unittest.TestCase):
+    def test_usage_limit_event_is_reported_as_quota_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = root / "fake_codex.py"
+            fake.write_text(
+                """
+import json
+import sys
+
+sys.stdin.read()
+print(json.dumps({
+    "type": "turn.failed",
+    "error": {
+        "message": "You've hit your usage limit. Try again at 02:17."
+    }
+}))
+raise SystemExit(1)
+""".strip(),
+                encoding="utf-8",
+            )
+            adapter = CodexExecAdapter(
+                model="test-codex-model",
+                command_prefix=(sys.executable, str(fake)),
+                working_directory=root,
+                timeout_seconds=2,
+            )
+            with self.assertRaisesRegex(
+                AdapterQuotaError,
+                "usage limit.*02:17",
+            ):
+                adapter.complete(system_prompt="secret prompt", user_payload="secret data")
+
     def test_jsonl_usage_and_final_message_are_captured(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

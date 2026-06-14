@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Replaced 24 abstract benchmark descriptions with concrete evidence packets,
+  source documents, schemas, localization strings, and simulated tool traces.
+- Added fail-closed benchmark validation for payload-dependent and
+  source-dependent cases.
+- Bound benchmark runs to the complete Python implementation, made concurrent
+  summary writes atomic on Windows, and added hashed quota-failure evidence.
+- Added structured Codex usage-limit diagnostics instead of opaque exit-code
+  failures.
 - Added actual PNG registration, matched image generation manifests,
   randomized blind visual-review packets, qualified-reviewer profiles, rubric
   scoring, and hash-linked R06 evidence aggregation.

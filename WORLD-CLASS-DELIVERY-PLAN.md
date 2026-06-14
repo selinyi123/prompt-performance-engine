@@ -316,6 +316,8 @@ Status: locally complete; independent reproduction pending.
 
 ### Phase D: Full Real Benchmark
 
+- completed concrete payload hardening for 24 source- or tool-dependent cases;
+- completed fail-closed validation against abstract placeholder tasks;
 - run all 12 domains and 60 cases;
 - analyze every loss and fatal flaw;
 - add regression tests before optimizer changes;

@@ -6,8 +6,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
+import secrets
 import sys
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -17,7 +20,11 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
-from prompt_performance_engine.adapters import CodexExecAdapter  # noqa: E402
+from prompt_performance_engine.adapters import (  # noqa: E402
+    AdapterError,
+    AdapterQuotaError,
+    CodexExecAdapter,
+)
 from prompt_performance_engine.benchmark import (  # noqa: E402
     group_jobs_by_domain,
     load_benchmark_definition,
@@ -41,24 +48,22 @@ from prompt_performance_engine.runtime import optimize  # noqa: E402
 from prompt_performance_engine.validation import validate_artifact  # noqa: E402
 
 
-EVALUATION_IMPLEMENTATION_FILES = (
-    "scripts/run_codex_benchmark.py",
-    "src/prompt_performance_engine/case_checks.py",
-    "src/prompt_performance_engine/codex_evaluation.py",
-    "src/prompt_performance_engine/domain_checks.py",
-    "src/prompt_performance_engine/evaluation.py",
-    "src/prompt_performance_engine/software_execution.py",
-    "src/prompt_performance_engine/software_sandbox.py",
-    "src/prompt_performance_engine/image_review.py",
-)
+def evaluation_implementation_paths() -> tuple[Path, ...]:
+    return tuple(
+        [
+            ROOT / "scripts" / "run_codex_benchmark.py",
+            *sorted((ROOT / "src" / "prompt_performance_engine").glob("*.py")),
+        ]
+    )
 
 
 def evaluation_implementation_sha256() -> str:
     digest = hashlib.sha256()
-    for relative in EVALUATION_IMPLEMENTATION_FILES:
+    for path in evaluation_implementation_paths():
+        relative = path.relative_to(ROOT).as_posix()
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
-        normalized = (ROOT / relative).read_text(encoding="utf-8")
+        normalized = path.read_text(encoding="utf-8")
         digest.update(normalized.replace("\r\n", "\n").encode("utf-8"))
         digest.update(b"\0")
     return digest.hexdigest()
@@ -66,12 +71,24 @@ def evaluation_implementation_sha256() -> str:
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary = path.with_name(
+        f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp"
+    )
     temporary.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    temporary.replace(path)
+    try:
+        for attempt in range(8):
+            try:
+                os.replace(temporary, path)
+                return
+            except PermissionError:
+                if attempt == 7:
+                    raise
+                time.sleep(0.01 * (attempt + 1))
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def load_valid_artifact(path: Path) -> dict[str, Any] | None:
@@ -86,6 +103,29 @@ def load_valid_evaluation(path: Path) -> dict[str, Any] | None:
         return None
     data = json.loads(path.read_text(encoding="utf-8"))
     return data if not validate_evaluation(data) else None
+
+
+def write_run_failure(
+    output_directory: Path,
+    *,
+    domain: str,
+    phase: str,
+    error: AdapterError,
+    run_manifest_sha256: str,
+) -> dict[str, Any]:
+    category = "quota" if isinstance(error, AdapterQuotaError) else "adapter"
+    report: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "domain": domain,
+        "phase": phase,
+        "category": category,
+        "retryable": category == "quota",
+        "message": str(error),
+        "run_manifest_sha256": run_manifest_sha256,
+    }
+    report["failure_sha256"] = hash_payload(report, "failure_sha256")
+    write_json(output_directory / "failures" / f"{domain}.json", report)
+    return report
 
 
 def ensure_run_manifest(
@@ -327,7 +367,7 @@ def main() -> int:
         },
         "_not_present",
     )
-    ensure_run_manifest(
+    run_manifest = ensure_run_manifest(
         output_directory,
         build_run_configuration(
             suite_id=suite_id,
@@ -366,15 +406,25 @@ def main() -> int:
         artifact = load_valid_artifact(optimization_path)
         if artifact is None:
             print(f"OPTIMIZE {domain}")
-            optimized = optimize(
-                OptimizationRequest(
-                    source_prompt=job.source_prompt,
+            try:
+                optimized = optimize(
+                    OptimizationRequest(
+                        source_prompt=job.source_prompt,
+                        domain=domain,
+                        output_format="standard",
+                    ),
+                    adapter_factory(),
+                    candidate_count=args.candidate_count,
+                )
+            except AdapterError as exc:
+                write_run_failure(
+                    output_directory,
                     domain=domain,
-                    output_format="standard",
-                ),
-                adapter_factory(),
-                candidate_count=args.candidate_count,
-            )
+                    phase="optimization",
+                    error=exc,
+                    run_manifest_sha256=run_manifest["manifest_sha256"],
+                )
+                raise
             artifact = optimized.artifact
             write_json(optimization_path, artifact)
         optimized_prompt = artifact["optimized_prompt"]
@@ -392,22 +442,32 @@ def main() -> int:
             for index in (1, 2)
         ]
         print(f"EVALUATE {domain}: {len(job.cases)} cases")
-        result = evaluate_suite(
-            suite_id=f"{suite_id}:{domain}",
-            original_prompt=job.source_prompt,
-            optimized_prompt=optimized_prompt,
-            cases=job.cases,
-            executor=executor,
-            judges=judges,
-            config=ExecutionConfig(
-                model=args.model,
-                temperature=None,
-                max_tokens=None,
-                seed=None,
-            ),
-            blind_seed=20260613,
-            repeated_or_cross_model=True,
-        )
+        try:
+            result = evaluate_suite(
+                suite_id=f"{suite_id}:{domain}",
+                original_prompt=job.source_prompt,
+                optimized_prompt=optimized_prompt,
+                cases=job.cases,
+                executor=executor,
+                judges=judges,
+                config=ExecutionConfig(
+                    model=args.model,
+                    temperature=None,
+                    max_tokens=None,
+                    seed=None,
+                ),
+                blind_seed=20260613,
+                repeated_or_cross_model=True,
+            )
+        except AdapterError as exc:
+            write_run_failure(
+                output_directory,
+                domain=domain,
+                phase="evaluation",
+                error=exc,
+                run_manifest_sha256=run_manifest["manifest_sha256"],
+            )
+            raise
         validation_failures = validate_evaluation(result)
         if validation_failures:
             raise ValueError(
@@ -429,5 +489,24 @@ def main() -> int:
     return 0 if all(results[domain]["gate_passed"] for domain in selected) else 1
 
 
+def cli_main() -> int:
+    try:
+        return main()
+    except AdapterQuotaError as exc:
+        print(
+            json.dumps(
+                {
+                    "status": "temporarily_blocked",
+                    "category": "quota",
+                    "retryable": True,
+                    "message": str(exc),
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 75
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli_main())

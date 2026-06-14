@@ -11,6 +11,26 @@ from typing import Any
 from .evaluation import EvaluationCase
 
 
+CONCRETE_PAYLOAD_MARKERS = {
+    "agents_automation": (
+        ("EXECUTION_MODE: simulated_tool_trace",),
+        ("AVAILABLE_TOOLS:",),
+        ("TOOL_RESULTS:", "LATEST_TOOL_RESULTS:"),
+    ),
+    "structured_data": (("OUTPUT_SCHEMA:",), ("CONTENT:",)),
+    "translation_localization": (
+        ("TARGET_LOCALE:",),
+        ("SOURCE_TEXT:", "SOURCE_STRINGS:"),
+    ),
+}
+MINIMUM_CONCRETE_PAYLOAD_CHARACTERS = 200
+SOURCE_PAYLOAD_MARKERS = (
+    "EVIDENCE_PACKET:",
+    "SOURCE_NOTES:",
+    "SOURCE_POLICY:",
+)
+
+
 @dataclass(frozen=True)
 class BenchmarkJob:
     job_id: str
@@ -114,6 +134,38 @@ def validate_benchmark(
                 failures.append(f"{case.case_id}: domain does not match job")
             if len(case.input_text.strip()) < 24:
                 failures.append(f"{case.case_id}: input is too shallow")
+            marker_groups = CONCRETE_PAYLOAD_MARKERS.get(job.domain)
+            if marker_groups is not None:
+                if (
+                    len(case.input_text.strip())
+                    < MINIMUM_CONCRETE_PAYLOAD_CHARACTERS
+                ):
+                    failures.append(
+                        f"{case.case_id}: concrete payload is too short"
+                    )
+                for alternatives in marker_groups:
+                    if not any(
+                        marker in case.input_text for marker in alternatives
+                    ):
+                        failures.append(
+                            f"{case.case_id}: concrete payload missing one of "
+                            f"{alternatives}"
+                        )
+            if "requires_source_payload" in case.tags:
+                if (
+                    len(case.input_text.strip())
+                    < MINIMUM_CONCRETE_PAYLOAD_CHARACTERS
+                ):
+                    failures.append(
+                        f"{case.case_id}: source payload is too short"
+                    )
+                if not any(
+                    marker in case.input_text
+                    for marker in SOURCE_PAYLOAD_MARKERS
+                ):
+                    failures.append(
+                        f"{case.case_id}: source payload marker is missing"
+                    )
             if len(case.rubric) < 3:
                 failures.append(f"{case.case_id}: rubric needs at least three criteria")
             domain_counts[job.domain] += 1

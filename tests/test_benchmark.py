@@ -1,6 +1,8 @@
 import unittest
 
 from prompt_performance_engine.benchmark import (
+    BenchmarkJob,
+    case_from_dict,
     group_jobs_by_domain,
     load_benchmark,
     load_benchmark_definition,
@@ -10,6 +12,58 @@ from prompt_performance_engine.contracts import PACKAGE_ROOT
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_payload_dependent_domain_rejects_abstract_case_description(self):
+        case = case_from_dict(
+            {
+                "case_id": "sd-abstract",
+                "input_text": "Extract an invoice into the requested schema.",
+                "rubric": ["Accuracy", "Schema", "Null handling"],
+                "domain": "structured_data",
+            }
+        )
+        failures = validate_benchmark(
+            "suite",
+            (
+                BenchmarkJob(
+                    job_id="job",
+                    domain="structured_data",
+                    source_prompt="Extract supplied content.",
+                    cases=(case,),
+                ),
+            ),
+        )
+        self.assertIn("sd-abstract: concrete payload is too short", failures)
+        self.assertTrue(
+            any("concrete payload missing" in failure for failure in failures)
+        )
+
+    def test_source_payload_tag_requires_embedded_source_material(self):
+        case = case_from_dict(
+            {
+                "case_id": "research-abstract",
+                "input_text": "Research the question and cite good sources.",
+                "rubric": ["Evidence", "Synthesis", "Uncertainty"],
+                "domain": "research_analysis",
+                "tags": ["requires_source_payload"],
+            }
+        )
+        failures = validate_benchmark(
+            "suite",
+            (
+                BenchmarkJob(
+                    job_id="job",
+                    domain="research_analysis",
+                    source_prompt="Analyze supplied evidence.",
+                    cases=(case,),
+                ),
+            ),
+        )
+        self.assertIn("research-abstract: source payload is too short", failures)
+        self.assertIn(
+            "research-abstract: source payload marker is missing",
+            failures,
+        )
+
     def test_core_18_has_real_six_domain_coverage(self):
         suite_id, jobs = load_benchmark(PACKAGE_ROOT / "benchmark" / "core-18.json")
         required = {

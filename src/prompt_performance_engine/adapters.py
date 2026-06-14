@@ -25,6 +25,10 @@ class AdapterCancelled(AdapterError):
     """The caller cancelled an in-flight adapter request."""
 
 
+class AdapterQuotaError(AdapterError):
+    """The provider rejected the request because account quota is exhausted."""
+
+
 @dataclass(frozen=True)
 class CompletionResponse:
     text: str
@@ -578,6 +582,7 @@ class CodexExecAdapter:
             shell=False,
         )
         stdout = ""
+        stderr = ""
         first_input: str | None = prompt
         try:
             while True:
@@ -586,7 +591,7 @@ class CodexExecAdapter:
                 if remaining <= 0:
                     raise TimeoutError
                 try:
-                    stdout, _ = process.communicate(
+                    stdout, stderr = process.communicate(
                         input=first_input,
                         timeout=min(0.1, remaining),
                     )
@@ -603,9 +608,19 @@ class CodexExecAdapter:
 
         try:
             if process.returncode != 0:
-                raise AdapterError(
-                    f"Codex execution failed with exit code {process.returncode}."
+                detail = _codex_failure_detail(stdout, stderr)
+                message = (
+                    f"Codex execution failed with exit code {process.returncode}"
+                    f": {detail}"
+                    if detail
+                    else f"Codex execution failed with exit code {process.returncode}."
                 )
+                if detail and (
+                    "usage limit" in detail.lower()
+                    or "quota" in detail.lower()
+                ):
+                    raise AdapterQuotaError(message)
+                raise AdapterError(message)
             text = output_path.read_text(encoding="utf-8").strip()
             if not text:
                 raise AdapterError("Codex execution returned no final message.")
@@ -634,3 +649,29 @@ class CodexExecAdapter:
             )
         finally:
             output_path.unlink(missing_ok=True)
+
+
+def _codex_failure_detail(stdout: str, stderr: str) -> str:
+    messages: list[str] = []
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        message: Any = None
+        if event.get("type") == "error":
+            message = event.get("message")
+        elif event.get("type") == "turn.failed":
+            error = event.get("error")
+            if isinstance(error, dict):
+                message = error.get("message")
+        if isinstance(message, str) and message.strip():
+            normalized = " ".join(message.split())
+            if normalized not in messages:
+                messages.append(normalized)
+    if messages:
+        return " | ".join(messages)[:1000]
+    stderr_lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    return stderr_lines[-1][:500] if stderr_lines else ""

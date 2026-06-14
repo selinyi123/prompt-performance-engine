@@ -2,7 +2,14 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import redirect_stderr
+from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
+
+from prompt_performance_engine.adapters import AdapterQuotaError
+from prompt_performance_engine.hashing import hash_payload
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +23,18 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class CodexBenchmarkRunnerTests(unittest.TestCase):
+    def test_atomic_json_writes_are_safe_under_concurrency(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "summary.json"
+            payloads = [{"writer": index, "value": "x" * 1000} for index in range(20)]
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                list(executor.map(lambda payload: RUNNER.write_json(path, payload), payloads))
+
+            result = json.loads(path.read_text(encoding="utf-8"))
+            self.assertIn(result, payloads)
+            self.assertEqual(list(root.glob("*.tmp")), [])
+
     def test_run_manifest_rejects_configuration_drift(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -48,6 +67,52 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             configuration["evaluation_protocol"],
             RUNNER.EVALUATION_PROTOCOL,
         )
+
+    def test_implementation_hash_binds_adapter_source(self):
+        relative = {
+            path.relative_to(ROOT).as_posix()
+            for path in RUNNER.evaluation_implementation_paths()
+        }
+        self.assertIn("scripts/run_codex_benchmark.py", relative)
+        self.assertIn("src/prompt_performance_engine/adapters.py", relative)
+        self.assertIn("src/prompt_performance_engine/runtime.py", relative)
+
+    def test_quota_failure_is_written_as_hashed_retryable_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = RUNNER.write_run_failure(
+                root,
+                domain="research_analysis",
+                phase="optimization",
+                error=AdapterQuotaError("usage limit; try again at 02:17"),
+                run_manifest_sha256="a" * 64,
+            )
+            stored = json.loads(
+                (root / "failures" / "research_analysis.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(stored, report)
+            self.assertEqual(stored["category"], "quota")
+            self.assertTrue(stored["retryable"])
+            self.assertEqual(stored["run_manifest_sha256"], "a" * 64)
+            self.assertEqual(
+                stored["failure_sha256"],
+                hash_payload(stored, "failure_sha256"),
+            )
+
+    def test_cli_quota_failure_uses_temporary_failure_exit_without_traceback(self):
+        stderr = StringIO()
+        with patch.object(
+            RUNNER,
+            "main",
+            side_effect=AdapterQuotaError("usage limit; try again later"),
+        ), redirect_stderr(stderr):
+            exit_code = RUNNER.cli_main()
+        payload = json.loads(stderr.getvalue())
+        self.assertEqual(exit_code, 75)
+        self.assertEqual(payload["category"], "quota")
+        self.assertTrue(payload["retryable"])
 
     def test_actual_usage_does_not_count_embedded_evaluation_metadata(self):
         with tempfile.TemporaryDirectory() as directory:

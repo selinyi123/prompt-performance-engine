@@ -108,14 +108,17 @@ python -m prompt_performance_engine create-review-packet ...
 python -m prompt_performance_engine aggregate-human-review ...
 ```
 
-The catalog contains 12 domains, 60 substantive cases, and 12 adversarial
-cases. Definitions alone are not performance evidence.
+The catalog contains 12 domains, 60 cases, and 12 adversarial cases.
+Payload-dependent cases must include their actual evidence packet, source
+document, schema, localization content, or simulated tool trace; abstract task
+descriptions fail validation. Definitions alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Protocol v15 binds the
+call caches, per-domain artifacts, and a summary. Protocol v16 binds the
 benchmark definition, optimizer Prompt hash, domain-profile hash, package
-version, evaluation/verifier implementation hash, Python runtime, model, and
-supported runtime controls. Its default is one optimization candidate.
+version, the complete Python implementation and runner hash, Python runtime,
+model, and supported runtime controls. Quota failures are written as hashed,
+retryable evidence. Its default is one optimization candidate.
 `--candidate-count 2..5` is experimental and does not by itself raise the
 evidence level.
 
