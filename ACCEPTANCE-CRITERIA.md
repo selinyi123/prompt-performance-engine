@@ -57,6 +57,7 @@
 | Critical regressions | Zero |
 | Fatal flaws | Zero in optimized outputs accepted for release |
 | Authoritative hard checks | Zero optimized-output hard-check failures |
+| Software isolation | All executable cases run in a digest-pinned container; inspected policy and active network, filesystem, identity, timeout, and memory probes pass |
 | Human review | 3 reviewers, at least 24 stratified cases |
 | Reproducibility | Clean install and replay on a fresh environment |
 | Security | No unresolved critical threat-model finding |

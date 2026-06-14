@@ -59,7 +59,7 @@ Not yet proven:
 - a passing real-provider 60-case benchmark beyond the current 5-case domain;
 - wins greater than losses in every domain;
 - zero fatal flaws across the release benchmark;
-- OS/container-sandboxed software execution with enforced resource isolation;
+- independent reproduction of the local OS/container sandbox evidence;
 - any actual image generation and qualified visual review;
 - completed independent expert review;
 - three-machine independent reproduction;
@@ -164,9 +164,10 @@ verification layer must:
 - make deterministic failures authoritative over model judges.
 
 The current implementation covers all five cases with four restricted Python
-subprocess harnesses and one formal migration contract. It rejects imports,
-filesystem APIs, subprocesses, dynamic code, and dunder access before execution.
-It remains a case-specific defense-in-depth layer, not the final OS sandbox.
+harnesses in a fixed Docker sandbox and one formal migration contract. It
+rejects imports, filesystem APIs, subprocesses, dynamic code, and dunder access
+before execution. Docker policy inspection and active probes verify the
+required OS boundary.
 
 Planned files:
 
@@ -295,13 +296,14 @@ Status: implemented in the current batch.
 
 ### Phase B: Complete Software Verification
 
-Status: case contracts and evidence derivation implemented; OS sandbox pending.
+Status: locally complete; independent reproduction pending.
 
 - completed four restricted Python execution validators;
 - completed the formal rolling-migration validator;
 - completed authoritative hard-check integration;
 - completed evaluation-derived code-execution evidence;
-- pending resource-, filesystem-, and network-isolated OS/container execution.
+- completed resource-, filesystem-, and network-isolated Docker execution;
+- pending independent-machine and independent-operator reproduction.
 
 ### Phase C: Actual Image Evaluation
 
@@ -338,12 +340,11 @@ Primary risks:
 
 Immediate sequence:
 
-1. add an OS/container sandbox backend for the four Python software cases;
-2. implement actual image generation and visual review;
-3. run the remaining 11 domains and 55 cases under immutable configurations;
-4. classify every loss and add regression fixtures before Prompt changes;
-5. conduct expert review and independent reproduction;
-6. close defects and run `assess-readiness --require-complete`.
+1. implement actual image generation and visual review;
+2. run the remaining 11 domains and 55 cases under immutable configurations;
+3. classify every loss and add regression fixtures before Prompt changes;
+4. conduct expert review and independent reproduction;
+5. close defects and run `assess-readiness --require-complete`.
 
 The project may be called stable only when the final command exits successfully
 against a complete, immutable evidence bundle.

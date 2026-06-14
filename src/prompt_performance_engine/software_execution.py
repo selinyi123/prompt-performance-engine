@@ -13,6 +13,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .software_sandbox import DockerSandbox
+
 
 PYTHON_BLOCK_RE = re.compile(
     r"```(?:python|py)\s*\r?\n(.*?)```",
@@ -308,6 +310,7 @@ def _run_restricted(
     harness: str,
     *,
     timeout_seconds: float = 8.0,
+    sandbox: DockerSandbox | None = None,
 ) -> tuple[bool, str]:
     script = f"""\
 import __future__
@@ -363,8 +366,22 @@ exec(
     candidate_globals,
 )
 {harness}
+import sys
+print("PPE_PYTHON_VERSION=" + sys.version.split()[0])
 print(json.dumps({{"status": "passed"}}))
 """
+    if sandbox is not None:
+        result = sandbox.run_script(script, timeout_seconds=timeout_seconds)
+        if not result.passed:
+            return False, result.detail
+        try:
+            payload = json.loads(result.stdout.strip().splitlines()[-1])
+        except (IndexError, json.JSONDecodeError):
+            return False, "Docker sandbox returned an invalid result."
+        return (
+            payload.get("status") == "passed",
+            "Docker sandbox tests passed with verified runtime policy.",
+        )
     with tempfile.TemporaryDirectory(prefix="ppe-software-check-") as directory:
         root = Path(directory)
         path = root / "verify.py"
@@ -614,7 +631,11 @@ if code != 2 or renamed:
 '''
 
 
-def verify_concurrency(output: str) -> tuple[bool, str]:
+def verify_concurrency(
+    output: str,
+    *,
+    sandbox: DockerSandbox | None = None,
+) -> tuple[bool, str]:
     definition, detail = _definition_source(
         output,
         name="SingleFlightCache",
@@ -622,11 +643,19 @@ def verify_concurrency(output: str) -> tuple[bool, str]:
     )
     if definition is None:
         return False, detail
-    passed, execution_detail = _run_restricted(definition, CONCURRENCY_HARNESS)
+    passed, execution_detail = _run_restricted(
+        definition,
+        CONCURRENCY_HARNESS,
+        sandbox=sandbox,
+    )
     return passed, f"{detail} {execution_detail}"
 
 
-def verify_pagination(output: str) -> tuple[bool, str]:
+def verify_pagination(
+    output: str,
+    *,
+    sandbox: DockerSandbox | None = None,
+) -> tuple[bool, str]:
     definition, detail = _definition_source(
         output,
         name="paginate",
@@ -634,11 +663,19 @@ def verify_pagination(output: str) -> tuple[bool, str]:
     )
     if definition is None:
         return False, detail
-    passed, execution_detail = _run_restricted(definition, PAGINATION_HARNESS)
+    passed, execution_detail = _run_restricted(
+        definition,
+        PAGINATION_HARNESS,
+        sandbox=sandbox,
+    )
     return passed, f"{detail} {execution_detail}"
 
 
-def verify_endpoint(output: str) -> tuple[bool, str]:
+def verify_endpoint(
+    output: str,
+    *,
+    sandbox: DockerSandbox | None = None,
+) -> tuple[bool, str]:
     definition, detail = _definition_source(
         output,
         name="handle_request",
@@ -646,11 +683,19 @@ def verify_endpoint(output: str) -> tuple[bool, str]:
     )
     if definition is None:
         return False, detail
-    passed, execution_detail = _run_restricted(definition, ENDPOINT_HARNESS)
+    passed, execution_detail = _run_restricted(
+        definition,
+        ENDPOINT_HARNESS,
+        sandbox=sandbox,
+    )
     return passed, f"{detail} {execution_detail}"
 
 
-def verify_cli(output: str) -> tuple[bool, str]:
+def verify_cli(
+    output: str,
+    *,
+    sandbox: DockerSandbox | None = None,
+) -> tuple[bool, str]:
     definition, detail = _definition_source(
         output,
         name="rename_cli",
@@ -658,7 +703,11 @@ def verify_cli(output: str) -> tuple[bool, str]:
     )
     if definition is None:
         return False, detail
-    passed, execution_detail = _run_restricted(definition, CLI_HARNESS)
+    passed, execution_detail = _run_restricted(
+        definition,
+        CLI_HARNESS,
+        sandbox=sandbox,
+    )
     return passed, f"{detail} {execution_detail}"
 
 
@@ -670,7 +719,12 @@ def _json_candidates(output: str) -> list[str]:
     return candidates
 
 
-def verify_migration(output: str) -> tuple[bool, str]:
+def verify_migration(
+    output: str,
+    *,
+    sandbox: DockerSandbox | None = None,
+) -> tuple[bool, str]:
+    del sandbox
     payload: dict[str, Any] | None = None
     for candidate in _json_candidates(output):
         try:

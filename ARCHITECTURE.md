@@ -159,8 +159,10 @@ flowchart LR
 - Source content cannot set evidence level or override system instructions.
 - Web, file, and tool results are untrusted inputs.
 - Model outputs are parsed and validated before publication.
-- Executable code evaluation uses case-specific restricted subprocess harnesses
-  or formal machine contracts; this is not an OS sandbox.
+- Executable code evaluation uses case-specific restricted harnesses inside a
+  digest-pinned, resource-limited Docker sandbox, or formal machine contracts.
+- Active probes verify network denial, read-only root, writable temporary
+  storage, non-root identity, timeout termination, and memory enforcement.
 - Consequential external actions require explicit authorization.
 
 ## 6. Failure Behavior

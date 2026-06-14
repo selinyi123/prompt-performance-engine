@@ -330,6 +330,51 @@ def assess_readiness(
             code_failures.append("not all executed software cases passed")
         if code.get("sandboxed") is not True:
             code_failures.append("sandboxed execution is not proven")
+        executable = int(code.get("executable_cases", 0))
+        if executable < 4:
+            code_failures.append("fewer than four software cases are executable")
+        if int(code.get("sandboxed_cases", 0)) != executable:
+            code_failures.append("not all executable software cases were sandboxed")
+        sandbox = code.get("sandbox")
+        if not isinstance(sandbox, dict):
+            code_failures.append("sandbox evidence is missing")
+        else:
+            if sandbox.get("backend") != "docker":
+                code_failures.append("Docker sandbox backend is not proven")
+            if sandbox.get("policy_verified") is not True:
+                code_failures.append("sandbox runtime policy is not verified")
+            if sandbox.get("isolation_probe_passed") is not True:
+                code_failures.append("sandbox isolation probe did not pass")
+            isolation_facts = sandbox.get("isolation_facts")
+            required_isolation_facts = {
+                "network_blocked",
+                "root_read_only",
+                "tmp_writable",
+                "non_root",
+            }
+            if (
+                not isinstance(isolation_facts, dict)
+                or any(
+                    isolation_facts.get(name) is not True
+                    for name in required_isolation_facts
+                )
+            ):
+                code_failures.append("sandbox isolation facts are incomplete")
+            if sandbox.get("resource_limits_verified") is not True:
+                code_failures.append("sandbox resource limits are not verified")
+            image_reference = sandbox.get("image_reference")
+            image_id = sandbox.get("image_id")
+            if (
+                not isinstance(image_reference, str)
+                or "@sha256:" not in image_reference
+            ):
+                code_failures.append("sandbox image reference is not digest-pinned")
+            if (
+                not isinstance(image_id, str)
+                or not image_id.startswith("sha256:")
+                or len(image_id) != 71
+            ):
+                code_failures.append("sandbox image id is invalid")
     requirements.append(
         _requirement(
             *REQUIREMENTS[4],

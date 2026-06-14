@@ -19,6 +19,13 @@ from prompt_performance_engine.hashing import hash_payload
 from prompt_performance_engine.software_evidence import (
     build_code_execution_evidence,
 )
+from prompt_performance_engine.software_sandbox import SandboxRun
+
+
+IMAGE = (
+    "python:3.13-alpine@sha256:"
+    "db66119d6609a3a941a9433b225f4e13d33c459cede097cf3ec2fc4d1bd314b2"
+)
 
 
 VALID_OUTPUTS = {
@@ -227,6 +234,99 @@ class SoftwareEvidenceTests(unittest.TestCase):
         self.assertEqual(
             report["evidence_sha256"],
             hash_payload(report, "evidence_sha256"),
+        )
+
+    def test_docker_evidence_requires_probe_and_all_executable_cases(self):
+        class FakeSandbox:
+            def verify_isolation(self):
+                return SandboxRun(
+                    passed=True,
+                    detail="verified",
+                    stdout=(
+                        "PPE_PYTHON_VERSION=3.13.14\n"
+                        '{"network_blocked": true}\n'
+                    ),
+                    stderr="",
+                    exit_code=0,
+                    elapsed_ms=1,
+                    timed_out=False,
+                    oom_killed=False,
+                    image_reference=IMAGE,
+                    image_id="sha256:" + "d" * 64,
+                    python_version="3.13.14",
+                    probe_facts={
+                        "network_blocked": True,
+                        "root_read_only": True,
+                        "tmp_writable": True,
+                        "non_root": True,
+                    },
+                    policy={"network_mode": "none"},
+                    policy_verified=True,
+                )
+
+            def run_script(self, script, *, timeout_seconds=8.0):
+                del script, timeout_seconds
+                return SandboxRun(
+                    passed=True,
+                    detail="verified",
+                    stdout=(
+                        "PPE_PYTHON_VERSION=3.13.14\n"
+                        '{"status": "passed"}\n'
+                    ),
+                    stderr="",
+                    exit_code=0,
+                    elapsed_ms=1,
+                    timed_out=False,
+                    oom_killed=False,
+                    image_reference=IMAGE,
+                    image_id="sha256:" + "d" * 64,
+                    python_version="3.13.14",
+                    probe_facts={},
+                    policy={"network_mode": "none"},
+                    policy_verified=True,
+                )
+
+            def verify_resource_limits(self):
+                common = {
+                    "detail": "expected failure",
+                    "stdout": "",
+                    "stderr": "",
+                    "elapsed_ms": 1,
+                    "image_reference": IMAGE,
+                    "image_id": "sha256:" + "d" * 64,
+                    "python_version": "3.13.14",
+                    "probe_facts": {},
+                    "policy": {"network_mode": "none"},
+                    "policy_verified": True,
+                }
+                return {
+                    "timeout": SandboxRun(
+                        passed=False,
+                        exit_code=0,
+                        timed_out=True,
+                        oom_killed=False,
+                        **common,
+                    ),
+                    "memory": SandboxRun(
+                        passed=False,
+                        exit_code=137,
+                        timed_out=False,
+                        oom_killed=True,
+                        **common,
+                    ),
+                }
+
+        report = build_code_execution_evidence(
+            software_evaluation(),
+            report_id="software-docker",
+            sandbox=FakeSandbox(),
+        )
+
+        self.assertTrue(report["facts"]["sandboxed"])
+        self.assertEqual(report["facts"]["sandboxed_cases"], 4)
+        self.assertTrue(report["facts"]["sandbox"]["policy_verified"])
+        self.assertTrue(
+            report["facts"]["sandbox"]["resource_limits_verified"]
         )
 
     def test_cli_writes_code_evidence(self):

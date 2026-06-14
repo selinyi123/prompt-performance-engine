@@ -30,11 +30,13 @@ platform. A mismatched rerun is rejected instead of reusing stale evidence.
 All five software cases now have authoritative machine verification. Pagination,
 concurrency, endpoint-contract, and CLI outputs are reduced to named Python
 definitions through a strict AST allowlist and exercised by trusted hidden
-harnesses in isolated `python -I -S` subprocesses. The rolling-migration case
-must emit an exact JSON compatibility matrix and destructive sequencing
-contract.
+harnesses in digest-pinned Docker containers with networking disabled, a
+read-only root filesystem, non-root execution, dropped capabilities, and
+enforced PID, memory, and CPU limits. The rolling-migration case must emit an
+exact JSON compatibility matrix and destructive sequencing contract.
 
 These are narrow case verifiers, not permission to execute arbitrary generated
-Python and not proof of OS-level sandboxing. Image cases remain text-only
-proxies until matched image generation and qualified visual review are
-recorded.
+Python. Their isolation claims are accepted only when active network,
+filesystem, identity, timeout, and out-of-memory probes pass. Image cases
+remain text-only proxies until matched image generation and qualified visual
+review are recorded.

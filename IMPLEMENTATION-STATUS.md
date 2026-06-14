@@ -30,15 +30,16 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 123 tests passing after the software execution,
+- Unit and behavior suite: 132 tests passing after the software execution,
   evidence derivation, and benchmark gate hardening batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
 - Software case verification: all five cases have authoritative machine checks.
   Four Python artifacts use restricted AST extraction plus trusted hidden
-  harnesses in isolated subprocesses; the migration case uses a formal JSON
-  compatibility contract. This is not an OS or container sandbox.
+  harnesses in digest-pinned Docker containers; the migration case uses a
+  formal JSON compatibility contract. Active probes verify network,
+  filesystem, identity, timeout, and memory boundaries.
 - Provider adapters: local contract tests cover request shape, retries,
   cancellation, timeout, command permissions, and usage capture.
 - Service: local integration tests cover HTTP auth, persistence, idempotency,
@@ -115,6 +116,8 @@ candidate as the default, and records unsupported Codex CLI generation
   references and a fail-closed stable-release gate.
 - A `build-code-evidence` command that derives hashed R05 evidence from
   validated authoritative software hard checks.
+- A fixed Docker sandbox policy plus a dedicated CI job that executes its
+  isolation, timeout, and out-of-memory integration tests.
 
 These capabilities remain unreleased because roadmap versions advance only
 after their evidence gates, not merely after implementation.
@@ -130,8 +133,8 @@ after their evidence gates, not merely after implementation.
 - A fresh-environment installation and replay must be independently reproduced.
 - The local fresh-target wheel smoke test is complete, but it is not an
   independent-machine or independent-operator reproduction.
-- Software checks still need an OS/container sandbox with enforced network,
-  filesystem, CPU, and memory isolation before R05 can pass.
+- Local R05 Docker isolation evidence is complete; independent-machine and
+  independent-operator reproduction remains pending.
 - Image cases need actual image generation plus qualified visual review;
   text-only proxies are insufficient for top-tier domain claims.
 - No complete readiness evidence manifest exists yet; current status therefore

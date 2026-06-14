@@ -48,6 +48,7 @@ EVALUATION_IMPLEMENTATION_FILES = (
     "src/prompt_performance_engine/domain_checks.py",
     "src/prompt_performance_engine/evaluation.py",
     "src/prompt_performance_engine/software_execution.py",
+    "src/prompt_performance_engine/software_sandbox.py",
 )
 
 

@@ -71,3 +71,25 @@ jobs:
           name: prompt-performance-engine-dist
           path: dist/
           if-no-files-found: error
+
+  docker-sandbox:
+    name: Verify Docker sandbox
+    runs-on: ubuntu-latest
+    env:
+      PPE_TEST_DOCKER_SANDBOX_IMAGE: python:3.13-alpine@sha256:db66119d6609a3a941a9433b225f4e13d33c459cede097cf3ec2fc4d1bd314b2
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Pull pinned sandbox image
+        run: docker pull "$PPE_TEST_DOCKER_SANDBOX_IMAGE"
+
+      - name: Run real Docker isolation tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest tests.test_software_sandbox.DockerSandboxIntegrationTests -v

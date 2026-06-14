@@ -115,7 +115,25 @@ class ReadinessTests(unittest.TestCase):
                 "eligible_cases": 5,
                 "executed_cases": 5,
                 "passed_cases": 5,
+                "executable_cases": 4,
+                "sandboxed_cases": 4,
                 "sandboxed": True,
+                "sandbox": {
+                    "backend": "docker",
+                    "image_reference": (
+                        "python:3.13-alpine@sha256:" + "a" * 64
+                    ),
+                    "image_id": "sha256:" + "a" * 64,
+                    "policy_verified": True,
+                    "isolation_probe_passed": True,
+                    "isolation_facts": {
+                        "network_blocked": True,
+                        "root_read_only": True,
+                        "tmp_writable": True,
+                        "non_root": True,
+                    },
+                    "resource_limits_verified": True,
+                },
             },
             "image_review": {
                 "eligible_cases": 5,
@@ -224,6 +242,34 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(report["status"], "incomplete")
         self.assertEqual(by_id["R05"]["status"], "failed")
         self.assertTrue(report["evidence_errors"])
+
+    def test_sandbox_boolean_without_runtime_proof_is_partial(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = self._full_manifest(root)
+            code_path = root / "code_execution.json"
+            code = json.loads(code_path.read_text(encoding="utf-8"))
+            code["facts"]["sandbox"] = {}
+            code["evidence_sha256"] = hash_payload(
+                code,
+                "evidence_sha256",
+            )
+            new_hash = write_json(code_path, code)
+            for item in manifest["artifacts"]:
+                if item["kind"] == "code_execution":
+                    item["sha256"] = new_hash
+            manifest["manifest_sha256"] = hash_payload(
+                manifest,
+                "manifest_sha256",
+            )
+
+            report = assess_readiness(manifest, root=root)
+
+        r05 = next(
+            item for item in report["requirements"] if item["id"] == "R05"
+        )
+        self.assertEqual(r05["status"], "partial")
+        self.assertIn("Docker sandbox backend is not proven", r05["failures"])
 
     def test_report_hash_and_derived_status_are_validated(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -40,7 +40,7 @@ Direct non-loopback binding is rejected by the CLI.
 | Prompt injection changes optimizer authority | Source is JSON-encoded inert data; deterministic adversarial audit | Novel semantic attacks may evade static patterns |
 | Credential leakage through logs/artifacts | Secrets read from environment; metadata excludes headers and response text; provider errors sanitized | A trusted external command can read files available to its OS account |
 | Arbitrary command execution through API | Command is fixed at service startup; shell is disabled; executable is allowlisted | Executable allowlisting is not an OS sandbox |
-| Model-generated code execution during evaluation | Four software cases extract only named definitions through a strict AST allowlist, reject dangerous constructs, and run trusted harnesses under `python -I -S` with minimal builtins and environment | Process isolation does not enforce kernel-level network, filesystem, CPU, or memory boundaries and is not a general Python sandbox |
+| Model-generated code execution during evaluation | Four software cases extract only named definitions through a strict AST allowlist, reject dangerous constructs, and run trusted harnesses in digest-pinned Docker containers with no network, read-only root, non-root identity, dropped capabilities, and PID/memory/CPU limits | Docker daemon and host-kernel security remain trusted; this is not a multi-tenant arbitrary-code service |
 | Remote interception or brute force | Direct non-loopback binding rejected; optional constant-time bearer auth; rate limit | Reverse proxy configuration remains operator responsibility |
 | Artifact or evidence tampering | Canonical hashes, audit consistency checks, evaluation hashes, immutable manifests | Local administrator can replace both data and unsigned hashes |
 | Resource exhaustion | 1 MB request limit, bounded provider timeout/retry, command timeout, per-client rate limit | One worker can still be occupied by a permitted long request |
@@ -58,5 +58,7 @@ an independent penetration test.
 The software checkers permit no candidate imports, dunder access, dynamic code,
 filesystem APIs, subprocesses, or unrestricted builtins. Allowed syntax and
 method calls are case-bounded, and trusted harnesses own all test inputs.
-Ordinary subprocess isolation is still insufficient for R05 completion; a real
-OS/container sandbox must enforce network, filesystem, CPU, and memory limits.
+R05 evidence is accepted only when Docker's inspected policy matches the fixed
+contract and active probes confirm network denial, read-only root, writable
+temporary storage, non-root execution, timeout termination, and out-of-memory
+enforcement.

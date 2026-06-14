@@ -41,6 +41,7 @@ from .profiles import load_profiles, resolve_profile
 from .readiness import assess_readiness, validate_readiness_report
 from .runtime import optimize
 from .software_evidence import build_code_execution_evidence
+from .software_sandbox import DockerSandbox
 from .service import (
     ArtifactStore,
     JobStore,
@@ -186,6 +187,12 @@ def build_parser() -> argparse.ArgumentParser:
     code_evidence_parser = subparsers.add_parser("build-code-evidence")
     code_evidence_parser.add_argument("evaluation", type=Path)
     code_evidence_parser.add_argument("--report-id", required=True)
+    code_evidence_parser.add_argument(
+        "--sandbox-backend",
+        choices=["host", "docker"],
+        default="host",
+    )
+    code_evidence_parser.add_argument("--sandbox-image")
     code_evidence_parser.add_argument("-o", "--output", type=Path, required=True)
 
     review_packet_parser = subparsers.add_parser("create-review-packet")
@@ -765,9 +772,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "build-code-evidence":
         evaluation = json.loads(args.evaluation.read_text(encoding="utf-8"))
+        if args.sandbox_backend == "docker" and not args.sandbox_image:
+            raise ValueError("--sandbox-image is required for Docker sandboxing.")
+        sandbox = (
+            DockerSandbox(args.sandbox_image)
+            if args.sandbox_backend == "docker"
+            else None
+        )
         report = build_code_execution_evidence(
             evaluation,
             report_id=args.report_id,
+            sandbox=sandbox,
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(

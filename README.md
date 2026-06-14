@@ -121,9 +121,11 @@ evidence level.
 
 All five software cases have authoritative case-owned verification. Four
 extract narrowly permitted Python definitions and run trusted hidden harnesses
-in isolated `python -I -S` subprocesses. The migration case validates an exact
-JSON compatibility contract. These checks override model judges on failure.
-They are not an OS or container sandbox.
+in digest-pinned Docker containers. The container backend disables networking,
+uses a read-only root filesystem, drops all capabilities, enables
+`no-new-privileges`, runs as a non-root user, and enforces PID, memory, and CPU
+limits. The migration case validates an exact JSON compatibility contract.
+These checks override model judges on failure.
 
 Create readiness evidence directly from a validated software evaluation. The
 command re-executes the five optimized outputs with the current verifier and
@@ -133,8 +135,12 @@ records the verifier implementation hash:
 python -m prompt_performance_engine build-code-evidence `
   artifacts\codex-benchmark-v14\software_engineering\evaluation.json `
   --report-id codex-software-exec-v14-gpt-5.5 `
+  --sandbox-backend docker `
+  --sandbox-image python:3.13-alpine@sha256:YOUR_VERIFIED_DIGEST `
   --output evidence\code-execution.json
 ```
+
+See `SOFTWARE-SANDBOX.md` for the enforced boundary and verification probes.
 
 ## Local Service
 
@@ -175,6 +181,7 @@ when text benchmarks pass.
 - `IMPLEMENTATION-STATUS.md`: current gates and evidence.
 - `CHANGELOG.md`: behavior delivered by each release.
 - `SECURITY.md`: supported deployment and repository-grounded risks.
+- `SOFTWARE-SANDBOX.md`: executable-evaluation isolation contract.
 - `MIGRATION.md`: legacy Prompt and audit import.
 - `WORLD-CLASS-DELIVERY-PLAN.md`: remaining architecture, implementation, and
   evidence work required for stable completion.
@@ -195,6 +202,7 @@ completed model result rather than being relabeled as v15.
 
 The aggregate release gate remains false because only 1 of 12 domains and 5 of
 60 cases have current real-provider evidence. Generated images, independent
-expert review, OS-sandboxed code execution, and three-machine reproduction are
-still missing. Therefore the project does not claim stable v1.0, production
-certification, universal best, or award equivalence.
+expert review, and three-machine reproduction are still missing. Local
+OS/container-sandbox evidence now exists for the software cases, but has not
+yet been independently reproduced. Therefore the project does not claim stable
+v1.0, production certification, universal best, or award equivalence.

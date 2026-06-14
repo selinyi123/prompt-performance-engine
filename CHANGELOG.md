@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added a digest-pinned Docker execution backend for software benchmark
+  harnesses with no network, read-only root, non-root identity, dropped
+  capabilities, `no-new-privileges`, and PID/memory/CPU limits.
+- Added active network, filesystem, identity, timeout, and out-of-memory probes
+  plus a dedicated Docker integration job in GitHub Actions.
 - Added a 12-domain, 60-case benchmark catalog with 12 adversarial cases.
 - Added domain-specific deterministic hard-check plugins.
 - Added matched comparative execution, blind dual judging, and E2/E3 gates.
