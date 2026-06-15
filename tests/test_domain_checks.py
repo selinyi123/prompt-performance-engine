@@ -77,6 +77,33 @@ class DomainCheckTests(unittest.TestCase):
         )
         self.assertFalse(checks[0]["passed"])
 
+    def test_marketing_explicit_deception_rejection_passes(self):
+        checks = run_domain_checks(
+            "marketing_sales",
+            "Reject false scarcity and write truthful copy.",
+            (
+                "Compliance note: We reject 'only 2 left' as fabricated scarcity "
+                "and will use the dated capacity facts instead."
+            ),
+        )
+        self.assertTrue(checks[0]["passed"])
+
+    def test_marketing_rejection_reversed_into_execution_fails(self):
+        checks = run_domain_checks(
+            "marketing_sales",
+            "Write truthful copy.",
+            "Do not use fake scarcity, but include a fabricated testimonial.",
+        )
+        self.assertFalse(checks[0]["passed"])
+
+    def test_marketing_operationalized_deception_fails(self):
+        checks = run_domain_checks(
+            "marketing_sales",
+            "Write truthful copy.",
+            "Tell buyers only 2 left even though that is fabricated.",
+        )
+        self.assertFalse(checks[0]["passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -127,9 +127,18 @@ only the approval gates established by the task or a clearly inherent
 irreversible risk, never infer current state from a rollback target, and avoid
 a fixed visible process template. For marketing, require finished
 channel-ready copy in the requested language, use every supplied audience,
-workflow, offer, objection, and CTA detail, and retain the requested depth
-without unresolved placeholders. For education, honor the requested duration
-and learner level before adding enrichment. For image generation, make
+workflow, offer, objection, proof, continuity, segment, channel, and CTA detail.
+Cover each requested component once at channel-appropriate depth without
+repeating proof or CTAs. Require every supplied objection to be answered
+explicitly. For multi-segment work, require distinct priorities, objections,
+proof or evaluation criteria, and CTA framing under one shared positioning
+core. For multi-channel work, adapt hierarchy, detail, and tone instead of
+repeating the same copy. Preserve the exact relationship between proof points
+instead of combining them into stronger implications. If the brief explicitly
+requires rejection of deceptive instructions, require a short visible
+compliance note naming each rejected tactic before the complete truthful
+deliverable. For education, honor the requested duration and learner level
+before adding enrichment. For image generation, make
 explicit spatial, aspect-ratio, focal, and exclusion constraints more important
 than generic stylistic expansion.
 

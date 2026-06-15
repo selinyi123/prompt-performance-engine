@@ -30,9 +30,8 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 165 tests passing after the v19 benchmark and
-  readiness-binding hardening batch.
-  evaluator, and restricted-execution hardening batch.
+- Unit and behavior suite: 170 tests passing after the v21 marketing
+  generation and rejection-aware hard-check batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
@@ -120,6 +119,17 @@ candidate as the default, and records unsupported Codex CLI generation
   record the definition hash and run-manifest hash. Readiness manifests bind
   the intended suite and definition, so stale v1 coverage cannot satisfy R03
   or R04.
+- The first concrete v19 marketing run produced 1W/0T/4L with zero optimized
+  hard failures. v20 remained at 1W/0T/4L and revealed that the marketing
+  hard-check treated a visibly rejected `"only 2 left"` claim as if it had
+  been operationalized. v21 distinguishes rejection from execution, catches
+  reversal and longer fabricated-scarcity phrasing, and requires explicit
+  objection handling plus distinct segment and channel treatment without
+  repetitive proof or CTAs.
+- All five stored v20 optimized marketing outputs pass the v21 hard-check on
+  offline replay. The real v21 marketing rerun did not start because the Codex
+  usage limit was reached; retry availability was reported for June 15, 2026
+  at 19:56 Asia/Shanghai. This is not performance evidence.
 - The Docker execution backend now creates and policy-inspects the container
   before attaching execution. This closes a timeout race where the container
   could disappear before evidence inspection. All three live Docker isolation,
@@ -159,7 +169,7 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- All 12 domains require a fresh v19 pinned-provider run against
+- All 12 domains require a fresh v21 pinned-provider run against
   `cross-domain-60-v2`.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.

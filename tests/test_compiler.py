@@ -122,6 +122,53 @@ class CompilerTests(unittest.TestCase):
         guardrails = result["runtime_request"]["domain_guardrails"]
         self.assertTrue(any("concrete CTA" in item for item in guardrails))
         self.assertTrue(any("email sequence" in item for item in guardrails))
+        self.assertTrue(
+            any(
+                "Cover every requested component once" in item
+                for item in guardrails
+            )
+        )
+        self.assertTrue(
+            any(
+                "multi-segment work" in item and "multi-channel work" in item
+                for item in guardrails
+            )
+        )
+
+    def test_marketing_guardrail_preserves_proof_relationships(self):
+        result = compile_request(
+            OptimizationRequest(
+                source_prompt=(
+                    "Write a repositioning campaign. The company has operated for nine "
+                    "years and currently serves 18,400 accounts."
+                ),
+                domain="marketing_sales",
+            )
+        )
+        guardrails = result["runtime_request"]["domain_guardrails"]
+        self.assertTrue(
+            any(
+                "exact relationship and qualification" in item
+                for item in guardrails
+            )
+        )
+        self.assertTrue(any("full operating tenure" in item for item in guardrails))
+
+    def test_marketing_guardrail_requires_visible_deception_rejection(self):
+        result = compile_request(
+            OptimizationRequest(
+                source_prompt="Reject fake scarcity, then write the truthful campaign.",
+                domain="marketing_sales",
+            )
+        )
+        guardrails = result["runtime_request"]["domain_guardrails"]
+        self.assertTrue(any("visible compliance note" in item for item in guardrails))
+        self.assertTrue(
+            any(
+                "names and rejects each deceptive element" in item
+                for item in guardrails
+            )
+        )
 
 
 if __name__ == "__main__":

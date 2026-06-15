@@ -22,6 +22,17 @@
   closed.
 - Split Docker sandbox execution into create, pre-execution policy inspection,
   and attached start phases, eliminating an inspect-after-timeout race.
+- Recorded the first concrete v19 marketing run at 1W/0T/4L with zero
+  optimized hard failures, confirming that concrete briefs alone did not
+  resolve the domain-quality gap.
+- Advanced through v20 and v21 with explicit objection handling, distinct
+  segment and channel treatment, proof-relationship preservation, concise
+  visible rejection of deceptive tactics, and anti-repetition guidance.
+- Made marketing deception checks rejection-aware while still failing
+  reversal into execution and longer fabricated-scarcity phrasing. All five
+  stored v20 optimized outputs pass the v21 hard-check on offline replay.
+- Attempted the v21 real marketing rerun, but the provider usage limit blocked
+  generation before any case result. No v21 performance claim is recorded.
 - Fixed forbidden-substring checks for rejected requests, warning contexts, and
   Chinese refusal language, plus case-insensitive required-text matching.
 - Extended restricted Python verification to include referenced safe literal

@@ -56,8 +56,22 @@ def domain_guardrails(profile_id: str) -> list[str]:
             "benefits into concrete decisions and situations rather than generic claims.",
             "Preserve the requested deliverable depth and any supplied concrete CTA. A "
             "single finished deliverable may contain all required landing-page sections "
-            "or all messages in an email sequence. For deceptive briefs, explicitly "
-            "reject each deceptive element and provide a specific compliant alternative.",
+            "or all messages in an email sequence. Cover every requested component once "
+            "at channel-appropriate depth without repeating the same proof, CTA, or value "
+            "claim merely to appear complete.",
+            "Answer every supplied audience objection explicitly where that audience "
+            "encounters it; do not leave an objection merely implied by a feature list. "
+            "For multi-segment work, give each segment distinct priorities, objections, "
+            "proof or evaluation criteria, and CTA framing under one shared positioning "
+            "core. For multi-channel work, adapt hierarchy, detail, and tone to each "
+            "channel instead of repeating one block of copy.",
+            "Preserve the exact relationship and qualification of every proof point. Do "
+            "not merge separate facts into a stronger implication, such as implying that "
+            "all current customers share the company's full operating tenure.",
+            "For deceptive briefs, include a concise visible compliance note that names "
+            "and rejects each deceptive element, then provide the complete specific "
+            "compliant alternative. The note is part of the requested finished "
+            "deliverable, not optional process commentary.",
         ]
     if profile_id == "image_generation":
         return [
