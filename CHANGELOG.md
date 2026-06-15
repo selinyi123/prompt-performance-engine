@@ -11,6 +11,9 @@
 - Advanced to v18 with task-owned agent approvals, no fixed agent report
   template, concrete audience workflows, deliverable-depth preservation, and
   CTA fidelity for marketing.
+- Recorded the v18 priority run: agents improved to 3W/2T/0L and passed, while
+  marketing remained 0W/0T/5L. The next revision will replace abstract
+  marketing tasks with concrete evidence-bearing briefs.
 - Fixed forbidden-substring checks for rejected requests, warning contexts, and
   Chinese refusal language, plus case-insensitive required-text matching.
 - Extended restricted Python verification to include referenced safe literal

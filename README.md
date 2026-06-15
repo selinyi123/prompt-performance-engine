@@ -218,8 +218,10 @@ rules were insufficient: education held at 3W/0T/2L and image generation
 improved to 2W/0T/3L, but agents and marketing each fell to 0W/0T/5L. Protocol
 v18 therefore removes invented approval gates and fixed process templates from
 agent prompts, and requires marketing prompts to preserve concrete audience
-workflows, deliverable depth, and supplied CTAs. v18 has not yet passed a real
-provider gate.
+workflows, deliverable depth, and supplied CTAs. A 42-call v18 diagnostic then
+produced agents 3W/2T/0L with a passing domain gate, but marketing remained
+0W/0T/5L. The remaining marketing failure is now treated as a benchmark-brief
+and domain-strategy defect rather than a reason to add more global ceremony.
 
 Real-provider coverage now passes R03, raising readiness to 5 of 10 mandatory
 gates. The aggregate quality gate R04 remains partial. The first image run has

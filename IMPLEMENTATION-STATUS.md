@@ -108,7 +108,12 @@ candidate as the default, and records unsupported Codex CLI generation
   0W/0T/5L, image generation 2W/0T/3L, and education 3W/0T/2L, with zero hard
   failures or critical regressions. v18 narrows agent approval behavior,
   removes fixed visible process templates, and restores concrete marketing
-  depth and CTA fidelity. A fresh matched v18 provider run is required.
+  depth and CTA fidelity.
+- The v18 priority run used 42 real model calls. Agents improved to 3W/2T/0L
+  and passed its domain gate with zero hard failures, critical regressions, or
+  fatal flaws. Marketing remained 0W/0T/5L. The next benchmark revision must
+  replace its five abstract marketing tasks with concrete product, audience,
+  proof, channel, and CTA briefs before further prompt tuning.
 
 ## Implemented After v0.3, Gate Pending
 
@@ -144,8 +149,8 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- A fresh v18 pinned-provider run must confirm the optimizer and evaluator
-  changes under matched settings.
+- The remaining eight domains require a fresh v18 pinned-provider run after the
+  marketing benchmark brief is made concrete and versioned.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.
 - Three independent qualified reviewers must complete at least 24 cases and
