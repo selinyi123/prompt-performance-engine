@@ -3,9 +3,24 @@
   "$id": "https://local.invalid/prompt-performance/1.0.0/readiness-manifest.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "artifacts", "manifest_sha256"],
+  "required": ["schema_version", "benchmark_target", "artifacts", "manifest_sha256"],
   "properties": {
     "schema_version": {"const": "1.0.0"},
+    "benchmark_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite_id", "definition_sha256"],
+      "properties": {
+        "suite_id": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "definition_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
     "artifacts": {
       "type": "array",
       "items": {

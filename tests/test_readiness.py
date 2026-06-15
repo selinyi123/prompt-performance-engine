@@ -73,6 +73,8 @@ def benchmark_summary() -> dict:
     report = {
         "schema_version": "1.0.0",
         "suite_id": "release-suite",
+        "benchmark_definition_sha256": "a" * 64,
+        "run_manifest_sha256": "b" * 64,
         "completed_domains": sorted(domains),
         "domain_count": 12,
         "case_count": 60,
@@ -248,7 +250,11 @@ class ReadinessTests(unittest.TestCase):
                 limitations=["Fixture evidence for contract testing only."],
             )
             self._add(root, specs, f"reproduction-{index}.json", kind, payload)
-        return build_readiness_manifest(specs)
+        return build_readiness_manifest(
+            specs,
+            expected_benchmark_suite_id="release-suite",
+            expected_benchmark_definition_sha256="a" * 64,
+        )
 
     def test_empty_evidence_cannot_claim_completion(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -261,6 +267,32 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(report["claim_ceiling"], "optimized_candidate")
         self.assertEqual(report["passed_requirement_count"], 0)
         self.assertEqual(validate_readiness_report(report), [])
+
+    def test_stale_benchmark_summary_cannot_satisfy_release_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = self._full_manifest(root)
+            manifest["benchmark_target"] = {
+                "suite_id": "release-suite-v2",
+                "definition_sha256": "c" * 64,
+            }
+            manifest["manifest_sha256"] = hash_payload(
+                manifest,
+                "manifest_sha256",
+            )
+            report = assess_readiness(manifest, root=root)
+
+        by_id = {item["id"]: item for item in report["requirements"]}
+        self.assertEqual(by_id["R03"]["status"], "partial")
+        self.assertEqual(by_id["R04"]["status"], "partial")
+        self.assertIn(
+            "benchmark summary suite does not match the release target",
+            by_id["R03"]["failures"],
+        )
+        self.assertIn(
+            "benchmark summary definition hash does not match the release target",
+            by_id["R04"]["failures"],
+        )
 
     def test_all_ten_evidence_gates_are_required_for_completion(self):
         with tempfile.TemporaryDirectory() as directory:

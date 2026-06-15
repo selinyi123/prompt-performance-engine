@@ -64,6 +64,34 @@ class BenchmarkTests(unittest.TestCase):
             failures,
         )
 
+    def test_marketing_domain_rejects_abstract_brief(self):
+        case = case_from_dict(
+            {
+                "case_id": "marketing-abstract",
+                "input_text": "Write a landing page for bookkeeping software.",
+                "rubric": ["Audience", "Offer", "CTA"],
+                "domain": "marketing_sales",
+            }
+        )
+        failures = validate_benchmark(
+            "suite",
+            (
+                BenchmarkJob(
+                    job_id="job",
+                    domain="marketing_sales",
+                    source_prompt="Create truthful marketing copy.",
+                    cases=(case,),
+                ),
+            ),
+        )
+        self.assertIn(
+            "marketing-abstract: concrete payload is too short",
+            failures,
+        )
+        self.assertTrue(
+            any("concrete payload missing" in failure for failure in failures)
+        )
+
     def test_core_18_has_real_six_domain_coverage(self):
         suite_id, jobs = load_benchmark(PACKAGE_ROOT / "benchmark" / "core-18.json")
         required = {
@@ -127,6 +155,19 @@ class BenchmarkTests(unittest.TestCase):
         grouped = group_jobs_by_domain(jobs)
         self.assertEqual(len(grouped), 12)
         self.assertTrue(all(len(job.cases) == 5 for job in grouped.values()))
+        marketing = grouped["marketing_sales"]
+        for case in marketing.cases:
+            with self.subTest(case=case.case_id):
+                self.assertGreaterEqual(len(case.input_text), 600)
+                for marker in (
+                    "BRIEF:",
+                    "PRODUCT_FACTS:",
+                    "AUDIENCE:",
+                    "CHANNEL:",
+                    "CTA:",
+                    "EVIDENCE:",
+                ):
+                    self.assertIn(marker, case.input_text)
 
 
 if __name__ == "__main__":

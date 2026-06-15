@@ -72,6 +72,7 @@ class DockerSandboxContractTests(unittest.TestCase):
             sandbox = DockerSandbox(IMAGE)
         command = sandbox._base_command("test-container")
 
+        self.assertEqual(command[1], "create")
         self.assertIn("never", command)
         self.assertIn("none", command)
         self.assertIn("--read-only", command)

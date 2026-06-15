@@ -61,9 +61,16 @@ def build_evidence_report(
 
 def build_readiness_manifest(
     artifacts: list[dict[str, str]],
+    *,
+    expected_benchmark_suite_id: str | None = None,
+    expected_benchmark_definition_sha256: str | None = None,
 ) -> dict[str, Any]:
     manifest: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
+        "benchmark_target": {
+            "suite_id": expected_benchmark_suite_id,
+            "definition_sha256": expected_benchmark_definition_sha256,
+        },
         "artifacts": artifacts,
     }
     manifest["manifest_sha256"] = hash_payload(manifest, "manifest_sha256")
@@ -269,10 +276,57 @@ def assess_readiness(
     benchmark_records = artifacts.get("benchmark_summary", [])
     benchmark_evidence = [path for path, _ in benchmark_records]
     benchmark_failures: list[str] = []
+    benchmark_binding_failures: list[str] = []
     benchmark = benchmark_records[0][1] if benchmark_records else None
+    benchmark_target = manifest.get("benchmark_target")
+    target_suite_id = (
+        benchmark_target.get("suite_id")
+        if isinstance(benchmark_target, dict)
+        else None
+    )
+    target_definition_sha256 = (
+        benchmark_target.get("definition_sha256")
+        if isinstance(benchmark_target, dict)
+        else None
+    )
+    if not isinstance(target_suite_id, str) or not target_suite_id.strip():
+        benchmark_binding_failures.append(
+            "release benchmark suite target is not bound"
+        )
+    if (
+        not isinstance(target_definition_sha256, str)
+        or len(target_definition_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in target_definition_sha256)
+    ):
+        benchmark_binding_failures.append(
+            "release benchmark definition hash is not bound"
+        )
     if len(benchmark_records) > 1:
         benchmark_failures.append("exactly one release benchmark summary is required")
     if benchmark is not None:
+        if benchmark.get("suite_id") != target_suite_id:
+            benchmark_binding_failures.append(
+                "benchmark summary suite does not match the release target"
+            )
+        if (
+            benchmark.get("benchmark_definition_sha256")
+            != target_definition_sha256
+        ):
+            benchmark_binding_failures.append(
+                "benchmark summary definition hash does not match the release target"
+            )
+        run_manifest_sha256 = benchmark.get("run_manifest_sha256")
+        if (
+            not isinstance(run_manifest_sha256, str)
+            or len(run_manifest_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in run_manifest_sha256
+            )
+        ):
+            benchmark_binding_failures.append(
+                "benchmark summary is not bound to a run manifest"
+            )
         if benchmark.get("domain_count", 0) < 12:
             benchmark_failures.append("fewer than 12 domains were completed")
         if benchmark.get("case_count", 0) < 60:
@@ -282,6 +336,7 @@ def assess_readiness(
         usage = benchmark.get("usage", {})
         if not isinstance(usage, dict) or usage.get("actual_model_calls", 0) <= 0:
             benchmark_failures.append("no real model calls are recorded")
+    benchmark_failures.extend(benchmark_binding_failures)
     requirements.append(
         _requirement(
             *REQUIREMENTS[2],
@@ -293,6 +348,7 @@ def assess_readiness(
     )
 
     quality_failures: list[str] = []
+    quality_failures.extend(benchmark_binding_failures)
     if benchmark is not None:
         if benchmark.get("aggregate_gate_passed") is not True:
             quality_failures.append("aggregate improvement gate did not pass")

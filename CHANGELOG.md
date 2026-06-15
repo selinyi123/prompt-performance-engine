@@ -14,6 +14,14 @@
 - Recorded the v18 priority run: agents improved to 3W/2T/0L and passed, while
   marketing remained 0W/0T/5L. The next revision will replace abstract
   marketing tasks with concrete evidence-bearing briefs.
+- Advanced to v19 and `cross-domain-60-v2` by replacing all five abstract
+  marketing tasks with concrete product facts, audiences, channels, CTAs, and
+  evidence boundaries.
+- Bound benchmark summaries and readiness manifests to the exact suite,
+  benchmark-definition hash, and run-manifest hash so stale coverage fails
+  closed.
+- Split Docker sandbox execution into create, pre-execution policy inspection,
+  and attached start phases, eliminating an inspect-after-timeout race.
 - Fixed forbidden-substring checks for rejected requests, warning contexts, and
   Chinese refusal language, plus case-insensitive required-text matching.
 - Extended restricted Python verification to include referenced safe literal

@@ -22,6 +22,14 @@ CONCRETE_PAYLOAD_MARKERS = {
         ("TARGET_LOCALE:",),
         ("SOURCE_TEXT:", "SOURCE_STRINGS:"),
     ),
+    "marketing_sales": (
+        ("BRIEF:",),
+        ("PRODUCT_FACTS:",),
+        ("AUDIENCE:",),
+        ("CHANNEL:",),
+        ("CTA:",),
+        ("EVIDENCE:",),
+    ),
 }
 MINIMUM_CONCRETE_PAYLOAD_CHARACTERS = 200
 SOURCE_PAYLOAD_MARKERS = (

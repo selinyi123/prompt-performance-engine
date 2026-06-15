@@ -108,20 +108,25 @@ python -m prompt_performance_engine create-review-packet ...
 python -m prompt_performance_engine aggregate-human-review ...
 ```
 
-The catalog contains 12 domains, 60 cases, and 12 adversarial cases.
+The `cross-domain-60-v2` catalog contains 12 domains, 60 cases, and 12
+adversarial cases.
 Payload-dependent cases must include their actual evidence packet, source
 document, schema, localization content, or simulated tool trace; abstract task
-descriptions fail validation. Definitions alone are not performance evidence.
+descriptions fail validation. Marketing cases must include a product brief,
+verified facts, audience, channel, CTA, and evidence boundary. Definitions
+alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Protocol v18 binds the
+call caches, per-domain artifacts, and a summary. Protocol v19 binds the
 benchmark definition, optimizer Prompt hash, domain-profile hash, package
 version, the complete Python implementation and runner hash, Python runtime,
 model, and supported runtime controls. Quota failures are written as hashed,
 retryable evidence. v17 added source-language and scope preservation, suppressed
 unrequested variants and placeholders, and fixed measured hard-check false
 positives. v18 narrows agent approval behavior and restores concrete,
-audience-specific marketing depth. Its default is one optimization candidate.
+audience-specific marketing depth. v19 adds concrete marketing payloads and
+binds readiness to the exact benchmark suite, definition hash, and run
+manifest. Its default is one optimization candidate.
 `--candidate-count 2..5` is experimental and does not by itself raise the
 evidence level.
 
@@ -223,8 +228,11 @@ produced agents 3W/2T/0L with a passing domain gate, but marketing remained
 0W/0T/5L. The remaining marketing failure is now treated as a benchmark-brief
 and domain-strategy defect rather than a reason to add more global ceremony.
 
-Real-provider coverage now passes R03, raising readiness to 5 of 10 mandatory
-gates. The aggregate quality gate R04 remains partial. The first image run has
+Protocol v19 replaces all five abstract marketing tasks with concrete
+evidence-bearing briefs and upgrades the release benchmark to
+`cross-domain-60-v2`. Readiness now rejects the old v1 summary as stale.
+Accordingly, R03 is partial again and readiness is 4 of 10 mandatory gates
+until v19 completes a fresh 60/60 run. The first image run has
 all 10 matched assets, but no qualified independent visual-review submissions.
 Independent expert review and three-machine reproduction are also missing.
 Local OS/container-sandbox evidence exists for the software cases, but has not

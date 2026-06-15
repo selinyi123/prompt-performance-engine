@@ -30,7 +30,8 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 163 tests passing after the v18 proportionality,
+- Unit and behavior suite: 165 tests passing after the v19 benchmark and
+  readiness-binding hardening batch.
   evaluator, and restricted-execution hardening batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
@@ -114,6 +115,15 @@ candidate as the default, and records unsupported Codex CLI generation
   fatal flaws. Marketing remained 0W/0T/5L. The next benchmark revision must
   replace its five abstract marketing tasks with concrete product, audience,
   proof, channel, and CTA briefs before further prompt tuning.
+- v19 replaces those five marketing tasks with evidence-bearing payloads and
+  advances the release suite to `cross-domain-60-v2`. Benchmark summaries now
+  record the definition hash and run-manifest hash. Readiness manifests bind
+  the intended suite and definition, so stale v1 coverage cannot satisfy R03
+  or R04.
+- The Docker execution backend now creates and policy-inspects the container
+  before attaching execution. This closes a timeout race where the container
+  could disappear before evidence inspection. All three live Docker isolation,
+  timeout, and memory tests pass after the change.
 
 ## Implemented After v0.3, Gate Pending
 
@@ -149,8 +159,8 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- The remaining eight domains require a fresh v18 pinned-provider run after the
-  marketing benchmark brief is made concrete and versioned.
+- All 12 domains require a fresh v19 pinned-provider run against
+  `cross-domain-60-v2`.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.
 - Three independent qualified reviewers must complete at least 24 cases and
@@ -163,5 +173,5 @@ after their evidence gates, not merely after implementation.
 - The first matched image run has all 10 required assets generated and
   validated. Three qualified independent visual reviewers remain before R06
   can pass.
-- The current readiness manifest validates, but only 5 of 10 mandatory gates
+- The current readiness manifest validates, but only 4 of 10 mandatory gates
   pass; stable-release status therefore remains incomplete.

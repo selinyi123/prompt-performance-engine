@@ -227,8 +227,12 @@ def build_summary(
 ) -> dict[str, Any]:
     manifest_path = output_directory / "run-manifest.json"
     run_configuration: dict[str, Any] = {}
+    run_manifest_sha256: str | None = None
     if manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        candidate_manifest_sha256 = manifest.get("manifest_sha256")
+        if isinstance(candidate_manifest_sha256, str):
+            run_manifest_sha256 = candidate_manifest_sha256
         candidate = manifest.get("configuration")
         if isinstance(candidate, dict):
             run_configuration = candidate
@@ -262,6 +266,10 @@ def build_summary(
     summary: dict[str, Any] = {
         "schema_version": "1.0.0",
         "suite_id": suite_id,
+        "benchmark_definition_sha256": run_configuration.get(
+            "benchmark_definition_sha256"
+        ),
+        "run_manifest_sha256": run_manifest_sha256,
         "completed_domains": sorted(results),
         "domain_count": len(results),
         "case_count": cases,

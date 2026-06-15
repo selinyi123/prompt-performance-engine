@@ -85,7 +85,7 @@ class DockerSandbox:
         policy = self.policy
         command = [
             self.docker_command,
-            "run",
+            "create",
             "--name",
             name,
             "--pull",
@@ -212,9 +212,34 @@ class DockerSandbox:
         timed_out = False
         inspect_record: dict[str, Any] = {}
         try:
+            created = subprocess.run(
+                self._base_command(name),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+                check=False,
+            )
+            if created.returncode != 0:
+                raise RuntimeError(
+                    "Docker create failed: "
+                    + (created.stderr.strip() or "unknown error")
+                )
+            inspect_record = self._inspect(name)
+            if not self._policy_matches(inspect_record):
+                raise RuntimeError(
+                    "Docker runtime policy did not match before execution."
+                )
             try:
                 completed = subprocess.run(
-                    self._base_command(name),
+                    [
+                        self.docker_command,
+                        "start",
+                        "--attach",
+                        "--interactive",
+                        name,
+                    ],
                     input=script,
                     capture_output=True,
                     text=True,

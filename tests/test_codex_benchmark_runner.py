@@ -189,6 +189,7 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             RUNNER.ensure_run_manifest(
                 root,
                 {
+                    "benchmark_definition_sha256": "a" * 64,
                     "evaluation_implementation_sha256": "b" * 64,
                     "python_version": "3.13.0",
                     "platform_system": "TestOS",
@@ -220,6 +221,8 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             "TestOS",
         )
         self.assertEqual(summary["optimized_hard_failures"], 0)
+        self.assertEqual(summary["benchmark_definition_sha256"], "a" * 64)
+        self.assertEqual(len(summary["run_manifest_sha256"]), 64)
 
 
 if __name__ == "__main__":
