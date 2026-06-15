@@ -30,8 +30,8 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 154 tests passing after the image evidence,
-  evidence derivation, and benchmark gate hardening batch.
+- Unit and behavior suite: 162 tests passing after the v17 proportionality,
+  evaluator, and restricted-execution hardening batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
@@ -47,8 +47,9 @@ Status date: 2026-06-13
 - Packaging: wheel installation into both a clean target directory and a
   standard virtual environment loads the packaged optimizer Prompt, all 13
   profiles, compiler, and CLI audit successfully.
-- Runtime superiority: scoped software-domain improvement reached E2 under
-  protocol v14; the aggregate release claim remains `optimized_candidate`.
+- Runtime superiority: protocol v16 completed all 60 cases with 30 wins, 9
+  ties, and 21 losses. Coverage passes, but the aggregate release claim remains
+  `optimized_candidate`.
 
 ## Real Provider Trial Results
 
@@ -87,17 +88,22 @@ candidate as the default, and records unsupported Codex CLI generation
 - v13 reported a passing gate, but that result was invalidated when review
   found both migration outputs could fail hard checks while still aggregating
   as a tie. The gate now requires zero optimized-output hard failures.
-- v14 is the current valid run: 3W/1T/1L, zero critical regressions, zero fatal
-  flaws, zero optimized hard failures, and a passing E2 software-domain gate.
-  The aggregate release gate remains false because only 5 of 60 cases and 1 of
-  12 domains are complete.
+- v14 remains the latest passing scoped software run: 3W/1T/1L, zero critical
+  regressions, zero fatal flaws, zero optimized hard failures, and a passing E2
+  software-domain gate.
 - Protocol v15 additionally binds the evaluation/verifier implementation hash,
   Python version, and platform. Protocol v16 expands that binding to the whole
   Python package and runner, adds concurrency-safe atomic summaries, and emits
-  hashed quota/adapter failure evidence. The first v16 run is temporarily
-  blocked by the Codex account usage limit until June 15, 2026 at 02:17 local
-  time. The v14 optimized outputs were independently re-executed by the current
-  verifier and still pass 5/5, with the verifier hash recorded in R05 evidence.
+  hashed quota/adapter failure evidence.
+- On 2026-06-15, v16 completed all 12 domains and 60 cases using 240 real model
+  calls: 30W/9T/21L, 15% net improvement. Four domains passed their local gate.
+  The aggregate gate failed with three reported critical regressions, one fatal
+  flaw, and five optimized hard failures.
+- v17 fixes all five confirmed hard-check measurement defects and adds
+  source-language, scope, single-deliverable, state-fidelity, and
+  no-placeholder optimizer rules. Rechecking the immutable v16 outputs with the
+  v17 verifier changes optimized hard failures from 5 to 0 and hard regressions
+  from 3 to 0. A fresh matched v17 provider run is still required.
 
 ## Implemented After v0.3, Gate Pending
 
@@ -133,8 +139,8 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- A real pinned provider must execute the 60-case benchmark under matched
-  settings.
+- A fresh v17 pinned-provider run must confirm the optimizer and evaluator
+  changes under matched settings.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.
 - Three independent qualified reviewers must complete at least 24 cases and
@@ -147,5 +153,5 @@ after their evidence gates, not merely after implementation.
 - The first matched image run has all 10 required assets generated and
   validated. Three qualified independent visual reviewers remain before R06
   can pass.
-- The current readiness manifest validates, but only 4 of 10 mandatory gates
+- The current readiness manifest validates, but only 5 of 10 mandatory gates
   pass; stable-release status therefore remains incomplete.

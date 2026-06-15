@@ -330,6 +330,44 @@ def paginate(items, page, page_size):
         passed, detail = verify_cli(GOOD_CLI)
         self.assertTrue(passed, detail)
 
+    def test_cli_allows_safe_module_constants(self):
+        output = r"""```python
+SUCCESS = 0
+USAGE_OR_MISSING_SOURCE = 2
+DESTINATION_COLLISION = 3
+
+def rename_cli(argv, exists, rename, emit):
+    arguments = list(argv)
+    dry_run = "--dry-run" in arguments
+    if dry_run:
+        arguments.remove("--dry-run")
+    if len(arguments) != 2:
+        return USAGE_OR_MISSING_SOURCE
+    source, destination = arguments
+    if not exists(source):
+        return USAGE_OR_MISSING_SOURCE
+    if exists(destination):
+        return DESTINATION_COLLISION
+    if dry_run:
+        emit(source + " -> " + destination)
+    else:
+        rename(source, destination)
+    return SUCCESS
+```"""
+        passed, detail = verify_cli(output)
+        self.assertTrue(passed, detail)
+
+    def test_cli_does_not_execute_dynamic_module_dependencies(self):
+        output = r"""```python
+SUCCESS = compute_success()
+
+def rename_cli(argv, exists, rename, emit):
+    return SUCCESS
+```"""
+        passed, detail = verify_cli(output)
+        self.assertFalse(passed)
+        self.assertIn("SUCCESS", detail)
+
     def test_cli_allows_safe_startswith_validation(self):
         output = GOOD_CLI.replace(
             'if arg == "--dry-run":',

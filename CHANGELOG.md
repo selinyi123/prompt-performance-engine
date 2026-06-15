@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Completed the first full real-provider run across all 12 domains and 60 cases:
+  30 wins, 9 ties, 21 losses, and 15% net improvement from 240 model calls.
+- Advanced the evaluation protocol to v17 with source-language, scope,
+  single-deliverable, state-fidelity, and no-unrequested-placeholder rules.
+- Fixed forbidden-substring checks for rejected requests, warning contexts, and
+  Chinese refusal language, plus case-insensitive required-text matching.
+- Extended restricted Python verification to include referenced safe literal
+  module constants without executing dynamic module expressions.
+- Rechecked the immutable v16 outputs with the v17 verifier: optimized hard
+  failures fell from 5 to 0 and hard regressions from 3 to 0.
+- Updated readiness with complete 12-domain coverage; R03 now passes and overall
+  readiness is 5 of 10 mandatory gates.
+- Upgraded GitHub artifact upload from `actions/upload-artifact@v4` to v7.
 - Replaced 24 abstract benchmark descriptions with concrete evidence packets,
   source documents, schemas, localization strings, and simulated tool traces.
 - Added fail-closed benchmark validation for payload-dependent and

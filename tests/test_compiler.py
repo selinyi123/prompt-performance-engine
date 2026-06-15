@@ -75,6 +75,37 @@ class CompilerTests(unittest.TestCase):
             any("do not invent a replacement application" in item for item in guardrails)
         )
 
+    def test_optimizer_preserves_working_language_and_single_deliverable(self):
+        result = compile_request(
+            OptimizationRequest(
+                source_prompt="Write one concise English landing page.",
+                domain="marketing_sales",
+            )
+        )
+        system_prompt = result["system_prompt"]
+        self.assertIn("same working language", system_prompt)
+        self.assertIn("exactly one finished deliverable", system_prompt)
+        self.assertTrue(
+            any(
+                "unresolved placeholders" in item
+                for item in result["runtime_request"]["domain_guardrails"]
+            )
+        )
+
+    def test_agent_guardrail_preserves_verified_current_state(self):
+        result = compile_request(
+            OptimizationRequest(
+                source_prompt="Run an approval-gated deployment.",
+                domain="agents_automation",
+            )
+        )
+        self.assertTrue(
+            any(
+                "verified current external state" in item
+                for item in result["runtime_request"]["domain_guardrails"]
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -114,11 +114,13 @@ document, schema, localization content, or simulated tool trace; abstract task
 descriptions fail validation. Definitions alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Protocol v16 binds the
+call caches, per-domain artifacts, and a summary. Protocol v17 binds the
 benchmark definition, optimizer Prompt hash, domain-profile hash, package
 version, the complete Python implementation and runner hash, Python runtime,
 model, and supported runtime controls. Quota failures are written as hashed,
-retryable evidence. Its default is one optimization candidate.
+retryable evidence. v17 also preserves source language and scope, suppresses
+unrequested variants and placeholders, and fixes measured hard-check false
+positives. Its default is one optimization candidate.
 `--candidate-count 2..5` is experimental and does not by itself raise the
 evidence level.
 
@@ -195,19 +197,24 @@ when text benchmarks pass.
 
 Current released status: `static_audit_and_evidence`.
 
-The working tree has contract-tested later-stage capabilities. On 2026-06-13,
-protocol v14 ran five real `gpt-5.5` software-engineering cases and produced
-3 wins, 1 tie, and 1 loss. All five optimized outputs passed their authoritative
-machine checks, with zero critical regressions and zero fatal flaws. The scoped
-software-domain evaluation reached E2 and passed its domain gate.
+The working tree has contract-tested later-stage capabilities. On 2026-06-15,
+protocol v16 completed all 60 cases across all 12 domains with `gpt-5.5` at low
+reasoning effort: 30 wins, 9 ties, and 21 losses, for 15% net improvement. It
+used 240 real model calls. The aggregate gate remained false because not every
+domain passed and the v16 evaluator reported three critical regressions, one
+fatal flaw, and five optimized hard failures.
 
-Protocol v15 adds source and runtime binding. Its first real run was blocked
-before generation by the Codex account usage limit, so v14 remains the latest
-completed model result rather than being relabeled as v15.
+Protocol v17 fixes five confirmed measurement defects in those hard failures:
+three rejected or warning-context phrases were treated as positive claims, one
+case-sensitive required-text check rejected equivalent uppercase JSON, and the
+restricted software verifier omitted safe literal constants used by an
+otherwise runnable function. Rechecking the stored v16 outputs with the v17
+verifier yields zero hard failures and zero hard regressions, but this does not
+replace a fresh matched v17 model run.
 
-The aggregate release gate remains false because only 1 of 12 domains and 5 of
-60 cases have completed real-provider evidence. The first image run has all 10
-matched assets, but no qualified independent visual-review submissions yet.
+Real-provider coverage now passes R03, raising readiness to 5 of 10 mandatory
+gates. The aggregate quality gate R04 remains partial. The first image run has
+all 10 matched assets, but no qualified independent visual-review submissions.
 Independent expert review and three-machine reproduction are also missing.
 Local OS/container-sandbox evidence exists for the software cases, but has not
 yet been independently reproduced. Therefore the project does not claim stable

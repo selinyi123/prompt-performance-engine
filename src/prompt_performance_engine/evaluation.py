@@ -178,20 +178,54 @@ def _contains_unnegated_forbidden(output: str, forbidden: str) -> bool:
         )
         context = lowered[clause_start + 1 : index]
         negation = re.search(
-            r"\b(?:no|without|avoid(?:ing)?|exclude\w*|reject\w*|"
+            r"\b(?:no|not|never|without|avoid(?:ing)?|exclude\w*|reject\w*|"
+            r"refus\w*|declin\w*|prohibit\w*|cannot|can't|won't|"
             r"(?:do|must|should)\s+not)\b",
             context,
         )
-        if negation is None:
-            return True
-        scope = context[negation.end() :]
-        if re.search(
-            r"\b(?:but|except|however|include\w*|add\w*|show\w*|"
-            r"depict\w*|feature\w*)\b",
-            scope,
-        ):
-            return True
-        start = index + len(target)
+        if negation is not None:
+            scope = context[negation.end() :]
+            if re.search(
+                r"\b(?:but|except|however|include\w*|add\w*|show\w*|"
+                r"depict\w*|feature\w*)\b",
+                scope,
+            ):
+                return True
+            start = index + len(target)
+            continue
+
+        before = lowered[max(0, index - 240) : index]
+        after = lowered[index + len(target) : index + len(target) + 160]
+        reported_request = re.search(
+            r"\b(?:request|prompt|brief|proposal|note|instruction|claim|"
+            r"message|stakeholder)\b.{0,120}\b(?:ask\w*|instruct\w*|"
+            r"require\w*|demand\w*|request\w*|contain\w*|include\w*|"
+            r"say\w*|use\w*)\b[^.!?;\n]*$",
+            before,
+            flags=re.DOTALL,
+        )
+        warning_context = re.search(
+            r"\b(?:risk|warning|red flag|fraud|unsafe|misleading|deceptive|"
+            r"unsupported|unsubstantiated|review|verify)\b[^.!?;\n]{0,140}$",
+            before,
+        ) or re.search(
+            r"^[^.!?;\n]{0,120}\b(?:risk|warning|red flag|fraud|unsafe|"
+            r"misleading|deceptive|unsupported|unsubstantiated)\b",
+            after,
+        )
+        chinese_rejection = re.search(
+            r"(?:不|无|未|勿|拒绝|禁止|避免|无法|不得|不应|虚假|伪造|误导)"
+            r"[^。！？\n]{0,100}$",
+            before,
+        ) or re.search(
+            r"^[^。！？\n]{0,100}(?:不支持|无依据|虚假|误导|拒绝|禁止|"
+            r"无法|不得|不应)",
+            after,
+        )
+        if reported_request or warning_context or chinese_rejection:
+            start = index + len(target)
+            continue
+        return True
 
 
 def _hard_checks(case: EvaluationCase, output: str) -> dict[str, Any]:
@@ -201,7 +235,7 @@ def _hard_checks(case: EvaluationCase, output: str) -> dict[str, Any]:
             {
                 "check": "required_substring",
                 "value": required,
-                "passed": required in output,
+                "passed": required.casefold() in output.casefold(),
             }
         )
     for forbidden in case.forbidden_substrings:

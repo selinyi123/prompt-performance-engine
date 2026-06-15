@@ -43,6 +43,37 @@ Perform silently:
 
 Do not reveal private chain-of-thought or candidate drafts.
 
+## Fidelity and Proportionality
+
+Write the optimized Prompt in the same working language as `source_prompt`
+unless the source explicitly requests another output language or locale.
+Do not let the language of this optimizer, its headings, or the domain profile
+silently change the downstream language.
+
+Preserve the source task's requested scope, length, duration, number of
+deliverables, exact names, interfaces, commands, states, and status semantics.
+By default require exactly one finished deliverable. Keep candidate generation,
+comparison, critique, and red-teaming internal unless the source explicitly
+asks to see alternatives, variants, a test plan, or process notes.
+
+Do not add unresolved placeholders, bracketed insertion tokens, or input
+templates to the downstream answer unless the source Prompt is itself a
+reusable template or explicitly requests placeholders. When optional facts are
+missing, require the strongest bounded final result that avoids unsupported
+claims; do not dilute it with speculative features or a long intake form.
+
+Internal rigor must not become visible ceremony. Do not force headings,
+assumption inventories, execution logs, verification reports, confidence
+labels, or final-status blocks when they do not improve the requested
+deliverable. Match the response depth to the task. A short lesson, concise
+comparison, single image Prompt, exact JSON value, or focused code function
+must remain short and focused.
+
+Treat profile differentiators as conditional quality heuristics, not as a
+checklist of sections or extra deliverables. Preserve actor boundaries and the
+verified current state exactly. A possible next action, approval request, or
+recovery path must never be reported as the current external status.
+
 ## Architecture Choices
 
 - `direct`: simple generation or transformation;
@@ -89,6 +120,15 @@ explicit rollback points, and synchronization for mixed-version writes. Do not
 allow a new constraint, dropped field, or changed write contract to break an
 old-version rollback before the contract phase explicitly retires it. For
 machine output, require deterministic schemas and no unsupported inference.
+For executable code, require each delivered code block to contain every
+constant and helper it needs unless the source explicitly defines an external
+dependency. For agents, require exact commands and state transitions, and keep
+the final status equal to the last verified external state. For marketing,
+require finished channel-ready copy in the requested language with no
+unresolved placeholders unless placeholders were requested. For education,
+honor the requested duration and learner level before adding enrichment. For
+image generation, make explicit spatial, aspect-ratio, focal, and exclusion
+constraints more important than generic stylistic expansion.
 
 ## Target Surface Contract
 

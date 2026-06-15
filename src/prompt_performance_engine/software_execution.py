@@ -156,6 +156,44 @@ def _python_blocks(output: str) -> list[str]:
     return [block.strip() for block in PYTHON_BLOCK_RE.findall(output) if block.strip()]
 
 
+def _safe_literal_dependencies(
+    tree: ast.Module,
+    selected: list[ast.stmt],
+) -> list[ast.stmt]:
+    referenced = {
+        item.id
+        for node in selected
+        for item in ast.walk(node)
+        if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load)
+    }
+    dependencies: list[ast.stmt] = []
+    for item in tree.body:
+        name: str | None = None
+        value: ast.expr | None = None
+        if (
+            isinstance(item, ast.Assign)
+            and len(item.targets) == 1
+            and isinstance(item.targets[0], ast.Name)
+        ):
+            name = item.targets[0].id
+            value = item.value
+        elif (
+            isinstance(item, ast.AnnAssign)
+            and isinstance(item.target, ast.Name)
+            and item.value is not None
+        ):
+            name = item.target.id
+            value = item.value
+        if name not in referenced or value is None:
+            continue
+        try:
+            ast.literal_eval(value)
+        except (ValueError, TypeError):
+            continue
+        dependencies.append(item)
+    return dependencies
+
+
 def _definition_source(
     output: str,
     *,
@@ -181,6 +219,10 @@ def _definition_source(
                         and item is not node
                     ]
                     selected = [*helpers, node]
+                selected = [
+                    *_safe_literal_dependencies(tree, selected),
+                    *selected,
+                ]
                 sanitized = copy.deepcopy(selected)
                 for item in sanitized:
                     for candidate_class in (
@@ -215,7 +257,7 @@ def _definition_source(
                     return None, failure
                 return (
                     "\n\n".join(ast.unparse(item) for item in sanitized),
-                    f"Restricted {name} definition extracted.",
+                    f"Restricted {name} definition and safe literal dependencies extracted.",
                 )
     return None, f"No parseable {name} definition was found."
 

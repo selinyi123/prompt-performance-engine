@@ -28,6 +28,44 @@ def domain_guardrails(profile_id: str) -> list[str]:
             "When a task defines a machine-readable output schema, preserve every "
             "required top-level key, container type, field type, and ordering rule "
             "exactly. Validate the final structure against that schema before responding.",
+            "Return self-contained code blocks: every referenced constant and helper must "
+            "be defined in the same block unless the task explicitly supplies it as an "
+            "external dependency. Preserve exact public names and signatures.",
+        ]
+    if profile_id == "agents_automation":
+        return [
+            "Preserve the verified current external state exactly. Do not relabel a "
+            "failed, unchanged, or unexecuted state as awaiting approval merely because "
+            "a retry or recovery action could be approved later.",
+            "Keep commands, named arguments, retry semantics, checkpoint mutations, "
+            "approval scope, and rollback authorization exact. Do not add process "
+            "ceremony that obscures the requested operational result.",
+        ]
+    if profile_id == "marketing_sales":
+        return [
+            "Deliver finished channel-ready copy in the source Prompt's requested "
+            "language. Do not emit unresolved placeholders, alternative versions, or a "
+            "test plan unless the source explicitly requests them.",
+            "If product facts are missing, avoid unsupported feature claims while still "
+            "producing the strongest usable copy supported by the brief.",
+        ]
+    if profile_id == "image_generation":
+        return [
+            "Return exactly one directly usable image-generation Prompt unless variants "
+            "are requested. Preserve explicit aspect ratio, placement, focal hierarchy, "
+            "negative space, subject count, lighting direction, and exclusions.",
+        ]
+    if profile_id == "education":
+        return [
+            "Honor the requested learner level, duration, and module size before adding "
+            "enrichment. Keep objectives, practice, feedback, and assessment feasible "
+            "inside the stated time.",
+        ]
+    if profile_id == "research_analysis":
+        return [
+            "Match the requested report length and structure. Keep methodology, "
+            "confidence language, and caveats concise unless the task requires a formal "
+            "research protocol.",
         ]
     return []
 
