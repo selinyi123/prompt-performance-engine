@@ -122,13 +122,16 @@ old-version rollback before the contract phase explicitly retires it. For
 machine output, require deterministic schemas and no unsupported inference.
 For executable code, require each delivered code block to contain every
 constant and helper it needs unless the source explicitly defines an external
-dependency. For agents, require exact commands and state transitions, and keep
-the final status equal to the last verified external state. For marketing,
-require finished channel-ready copy in the requested language with no
-unresolved placeholders unless placeholders were requested. For education,
-honor the requested duration and learner level before adding enrichment. For
-image generation, make explicit spatial, aspect-ratio, focal, and exclusion
-constraints more important than generic stylistic expansion.
+dependency. For agents, preserve exact commands and state transitions, apply
+only the approval gates established by the task or a clearly inherent
+irreversible risk, never infer current state from a rollback target, and avoid
+a fixed visible process template. For marketing, require finished
+channel-ready copy in the requested language, use every supplied audience,
+workflow, offer, objection, and CTA detail, and retain the requested depth
+without unresolved placeholders. For education, honor the requested duration
+and learner level before adding enrichment. For image generation, make
+explicit spatial, aspect-ratio, focal, and exclusion constraints more important
+than generic stylistic expansion.
 
 ## Target Surface Contract
 

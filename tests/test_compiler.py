@@ -105,6 +105,23 @@ class CompilerTests(unittest.TestCase):
                 for item in result["runtime_request"]["domain_guardrails"]
             )
         )
+        self.assertTrue(
+            any(
+                "Do not add approval gates" in item
+                for item in result["runtime_request"]["domain_guardrails"]
+            )
+        )
+
+    def test_marketing_guardrail_preserves_depth_and_concrete_cta(self):
+        result = compile_request(
+            OptimizationRequest(
+                source_prompt="Write a three-email sequence with a trial CTA.",
+                domain="marketing_sales",
+            )
+        )
+        guardrails = result["runtime_request"]["domain_guardrails"]
+        self.assertTrue(any("concrete CTA" in item for item in guardrails))
+        self.assertTrue(any("email sequence" in item for item in guardrails))
 
 
 if __name__ == "__main__":

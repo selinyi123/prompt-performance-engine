@@ -6,6 +6,11 @@
   30 wins, 9 ties, 21 losses, and 15% net improvement from 240 model calls.
 - Advanced the evaluation protocol to v17 with source-language, scope,
   single-deliverable, state-fidelity, and no-unrequested-placeholder rules.
+- Recorded a four-domain v17 diagnostic run; zero hard failures remained, but
+  agents and marketing each regressed to 0W/0T/5L.
+- Advanced to v18 with task-owned agent approvals, no fixed agent report
+  template, concrete audience workflows, deliverable-depth preservation, and
+  CTA fidelity for marketing.
 - Fixed forbidden-substring checks for rejected requests, warning contexts, and
   Chinese refusal language, plus case-insensitive required-text matching.
 - Extended restricted Python verification to include referenced safe literal

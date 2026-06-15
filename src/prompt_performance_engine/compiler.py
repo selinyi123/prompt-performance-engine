@@ -36,10 +36,14 @@ def domain_guardrails(profile_id: str) -> list[str]:
         return [
             "Preserve the verified current external state exactly. Do not relabel a "
             "failed, unchanged, or unexecuted state as awaiting approval merely because "
-            "a retry or recovery action could be approved later.",
+            "a retry or recovery action could be approved later. Never infer the current "
+            "state from a rollback target, desired version, or proposed next action.",
             "Keep commands, named arguments, retry semantics, checkpoint mutations, "
             "approval scope, and rollback authorization exact. Do not add process "
             "ceremony that obscures the requested operational result.",
+            "Do not add approval gates beyond the supplied policy or a clearly inherent "
+            "irreversible risk. Do not mandate a fixed visible report template; match the "
+            "task's requested fields and keep any extra planning internal.",
         ]
     if profile_id == "marketing_sales":
         return [
@@ -47,7 +51,13 @@ def domain_guardrails(profile_id: str) -> list[str]:
             "language. Do not emit unresolved placeholders, alternative versions, or a "
             "test plan unless the source explicitly requests them.",
             "If product facts are missing, avoid unsupported feature claims while still "
-            "producing the strongest usable copy supported by the brief.",
+            "producing the strongest usable copy supported by the brief. Use every "
+            "supplied audience, workflow, offer, objection, and CTA detail; turn abstract "
+            "benefits into concrete decisions and situations rather than generic claims.",
+            "Preserve the requested deliverable depth and any supplied concrete CTA. A "
+            "single finished deliverable may contain all required landing-page sections "
+            "or all messages in an email sequence. For deceptive briefs, explicitly "
+            "reject each deceptive element and provide a specific compliant alternative.",
         ]
     if profile_id == "image_generation":
         return [

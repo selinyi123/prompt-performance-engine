@@ -30,7 +30,7 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 162 tests passing after the v17 proportionality,
+- Unit and behavior suite: 163 tests passing after the v18 proportionality,
   evaluator, and restricted-execution hardening batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
@@ -103,7 +103,12 @@ candidate as the default, and records unsupported Codex CLI generation
   source-language, scope, single-deliverable, state-fidelity, and
   no-placeholder optimizer rules. Rechecking the immutable v16 outputs with the
   v17 verifier changes optimized hard failures from 5 to 0 and hard regressions
-  from 3 to 0. A fresh matched v17 provider run is still required.
+  from 3 to 0.
+- A four-domain v17 diagnostic run produced agents 0W/0T/5L, marketing
+  0W/0T/5L, image generation 2W/0T/3L, and education 3W/0T/2L, with zero hard
+  failures or critical regressions. v18 narrows agent approval behavior,
+  removes fixed visible process templates, and restores concrete marketing
+  depth and CTA fidelity. A fresh matched v18 provider run is required.
 
 ## Implemented After v0.3, Gate Pending
 
@@ -139,7 +144,7 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- A fresh v17 pinned-provider run must confirm the optimizer and evaluator
+- A fresh v18 pinned-provider run must confirm the optimizer and evaluator
   changes under matched settings.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.

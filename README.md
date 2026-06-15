@@ -114,13 +114,14 @@ document, schema, localization content, or simulated tool trace; abstract task
 descriptions fail validation. Definitions alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Protocol v17 binds the
+call caches, per-domain artifacts, and a summary. Protocol v18 binds the
 benchmark definition, optimizer Prompt hash, domain-profile hash, package
 version, the complete Python implementation and runner hash, Python runtime,
 model, and supported runtime controls. Quota failures are written as hashed,
-retryable evidence. v17 also preserves source language and scope, suppresses
-unrequested variants and placeholders, and fixes measured hard-check false
-positives. Its default is one optimization candidate.
+retryable evidence. v17 added source-language and scope preservation, suppressed
+unrequested variants and placeholders, and fixed measured hard-check false
+positives. v18 narrows agent approval behavior and restores concrete,
+audience-specific marketing depth. Its default is one optimization candidate.
 `--candidate-count 2..5` is experimental and does not by itself raise the
 evidence level.
 
@@ -211,6 +212,14 @@ restricted software verifier omitted safe literal constants used by an
 otherwise runnable function. Rechecking the stored v16 outputs with the v17
 verifier yields zero hard failures and zero hard regressions, but this does not
 replace a fresh matched v17 model run.
+
+A four-domain v17 diagnostic run then showed that the generic proportionality
+rules were insufficient: education held at 3W/0T/2L and image generation
+improved to 2W/0T/3L, but agents and marketing each fell to 0W/0T/5L. Protocol
+v18 therefore removes invented approval gates and fixed process templates from
+agent prompts, and requires marketing prompts to preserve concrete audience
+workflows, deliverable depth, and supplied CTAs. v18 has not yet passed a real
+provider gate.
 
 Real-provider coverage now passes R03, raising readiness to 5 of 10 mandatory
 gates. The aggregate quality gate R04 remains partial. The first image run has
