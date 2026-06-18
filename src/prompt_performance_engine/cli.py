@@ -7,10 +7,13 @@ import hashlib
 import json
 import logging
 import os
+import sys
 from dataclasses import asdict
 from pathlib import Path
 
 from .adapters import (
+    AdapterError,
+    AdapterQuotaError,
     CodexExecAdapter,
     ExternalCommandAdapter,
     MockSequenceAdapter,
@@ -1050,3 +1053,36 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if failures else 0
 
     raise AssertionError(f"Unhandled command: {args.command}")
+
+
+def cli_main(argv: list[str] | None = None) -> int:
+    try:
+        return main(argv)
+    except AdapterQuotaError as exc:
+        print(
+            json.dumps(
+                {
+                    "status": "temporarily_blocked",
+                    "category": "quota",
+                    "retryable": True,
+                    "message": str(exc),
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 75
+    except AdapterError as exc:
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "category": "adapter",
+                    "retryable": False,
+                    "message": str(exc),
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 1

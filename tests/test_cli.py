@@ -3,15 +3,68 @@ import json
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
-from prompt_performance_engine.cli import main
+from prompt_performance_engine.adapters import AdapterError, AdapterQuotaError
+from prompt_performance_engine.cli import cli_main, main
 from prompt_performance_engine.hashing import hash_payload
 from prompt_performance_engine.validation import validate_artifact
 
 
 class CliTests(unittest.TestCase):
+    def test_cli_quota_failure_is_structured_without_traceback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prompt = root / "prompt.txt"
+            response = root / "response.txt"
+            prompt.write_text("Write a report.", encoding="utf-8")
+            response.write_text("unused", encoding="utf-8")
+            stderr = io.StringIO()
+            with mock.patch(
+                "prompt_performance_engine.cli.optimize",
+                side_effect=AdapterQuotaError("usage limit; retry later"),
+            ), redirect_stderr(stderr):
+                exit_code = cli_main(
+                    [
+                        "optimize",
+                        str(prompt),
+                        "--mock-response",
+                        str(response),
+                    ]
+                )
+            payload = json.loads(stderr.getvalue())
+            self.assertEqual(exit_code, 75)
+            self.assertEqual(payload["category"], "quota")
+            self.assertTrue(payload["retryable"])
+            self.assertNotIn("Traceback", stderr.getvalue())
+
+    def test_cli_adapter_failure_is_structured_without_traceback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prompt = root / "prompt.txt"
+            response = root / "response.txt"
+            prompt.write_text("Write a report.", encoding="utf-8")
+            response.write_text("unused", encoding="utf-8")
+            stderr = io.StringIO()
+            with mock.patch(
+                "prompt_performance_engine.cli.optimize",
+                side_effect=AdapterError("sanitized provider failure"),
+            ), redirect_stderr(stderr):
+                exit_code = cli_main(
+                    [
+                        "optimize",
+                        str(prompt),
+                        "--mock-response",
+                        str(response),
+                    ]
+                )
+            payload = json.loads(stderr.getvalue())
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(payload["category"], "adapter")
+            self.assertFalse(payload["retryable"])
+            self.assertNotIn("Traceback", stderr.getvalue())
     def test_mock_optimize_prints_copyable_prompt_not_wrapper(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

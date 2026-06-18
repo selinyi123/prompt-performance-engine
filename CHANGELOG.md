@@ -41,6 +41,8 @@
   hashes, selected index, selector method, and selector-response hash.
 - Exposed `candidate_count` through mock, OpenAI, external-command, and Codex
   CLIs plus the persistent HTTP service, with validation and idempotency binding.
+- Replaced user-facing adapter tracebacks with structured sanitized CLI errors;
+  quota exhaustion now returns retryable JSON and exit code 75.
 - Fixed forbidden-substring checks for rejected requests, warning contexts, and
   Chinese refusal language, plus case-insensitive required-text matching.
 - Extended restricted Python verification to include referenced safe literal

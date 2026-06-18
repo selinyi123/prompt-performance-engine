@@ -67,6 +67,10 @@ python -m prompt_performance_engine optimize-codex original-prompt.txt `
 Multiple candidates increase cost and do not by themselves raise the evidence
 level or prove higher quality.
 
+Known provider quota failures are emitted as one structured JSON object on
+standard error with exit code `75` and `retryable: true`; sanitized non-quota
+adapter failures use exit code `1`. Neither path prints a Python traceback.
+
 ## Run with OpenAI
 
 ```powershell

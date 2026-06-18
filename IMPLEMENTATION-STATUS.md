@@ -30,8 +30,8 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 175 tests passing after the v23 multi-candidate
-  evidence, CLI, and service batch.
+- Unit and behavior suite: 177 tests passing after the v23 multi-candidate
+  evidence, CLI, service, and structured adapter-error batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
@@ -44,6 +44,8 @@ Status date: 2026-06-13
   cancellation, timeout, command permissions, and usage capture.
 - Service: local integration tests cover HTTP auth, persistence, idempotency,
   atomic artifacts, restart recovery, and validated multi-candidate requests.
+- CLI: known quota and adapter failures return sanitized JSON with stable exit
+  codes and no traceback; quota failures are explicitly retryable.
 - Packaging: wheel installation into both a clean target directory and a
   standard virtual environment loads the packaged optimizer Prompt, all 13
   profiles, compiler, and CLI audit successfully.
