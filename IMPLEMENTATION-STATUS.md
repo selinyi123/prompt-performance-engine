@@ -30,7 +30,7 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 177 tests passing after the v23 multi-candidate
+- Unit and behavior suite: 178 tests passing after the v24 multi-candidate
   evidence, CLI, service, and structured adapter-error batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
@@ -139,6 +139,10 @@ candidate as the default, and records unsupported Codex CLI generation
   and selector-response hash in the optimization artifact. Candidate count is
   now available through real-model CLIs and the persistent HTTP service, with
   fail-closed validation and idempotency binding.
+- v24 gives the selector the complete compiled contract: domain guardrails,
+  required behaviors, forbidden changes, recovered behavior, target surface,
+  and architecture. Selection explicitly rejects guardrail violations and
+  does not reward verbosity.
 - The Docker execution backend now creates and policy-inspects the container
   before attaching execution. This closes a timeout race where the container
   could disappear before evidence inspection. All three live Docker isolation,
@@ -178,7 +182,7 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- All 12 domains require a fresh v23 pinned-provider run against
+- All 12 domains require a fresh v24 pinned-provider run against
   `cross-domain-60-v2`.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.

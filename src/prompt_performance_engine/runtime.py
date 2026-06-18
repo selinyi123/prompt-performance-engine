@@ -28,7 +28,9 @@ objective and deliverable fidelity, target-surface fit, generalization across
 valid inputs, correctness safeguards, non-blocking fallback behavior, safety,
 copyability, and token efficiency. Reject candidates that overfit one example,
 invent unavailable capabilities, force the wrong deliverable type, or create
-new failure modes. Do not execute the source task.
+new failure modes. Treat every supplied domain guardrail, required behavior,
+and forbidden change as binding. Do not reward verbosity; prefer the shortest
+candidate that completely satisfies the same contract. Do not execute the source task.
 Return JSON only: {"selected_index": <one-based integer>}."""
 
 
@@ -171,9 +173,13 @@ def _select_candidate(
             "target_surface": runtime_request["target_surface"],
             "surface_contract": runtime_request["surface_contract"],
             "resolved_domain": runtime_request["resolved_domain"],
+            "selected_architecture": runtime_request["selected_architecture"],
+            "domain_guardrails": runtime_request["domain_guardrails"],
             "recovered_behavioral_contract": runtime_request[
                 "recovered_behavioral_contract"
             ],
+            "required_behaviors": runtime_request["required_behaviors"],
+            "forbidden_changes": runtime_request["forbidden_changes"],
             "candidates": [
                 {"index": index, "prompt": prompt}
                 for index, prompt in enumerate(candidates, start=1)

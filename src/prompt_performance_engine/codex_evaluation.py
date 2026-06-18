@@ -21,7 +21,7 @@ from .hashing import sha256_json
 
 AdapterFactory = Callable[[], CodexExecAdapter]
 JSON_OBJECT_RE = re.compile(r"\{.*\}", flags=re.DOTALL)
-EVALUATION_PROTOCOL = "codex-software-exec-v23"
+EVALUATION_PROTOCOL = "codex-software-exec-v24"
 TEXT_ONLY_EXECUTION_CONTEXT = """This is a matched text-only benchmark.
 No repository or local files are part of the case unless their contents appear
 in the runtime input. Complete implementation and design tasks as fully as the

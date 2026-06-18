@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from prompt_performance_engine.adapters import CompletionResponse, MockSequenceAdapter
@@ -122,6 +123,40 @@ class RuntimeTests(unittest.TestCase):
             [item["selected"] for item in selection["candidates"]],
             [False, True, False],
         )
+
+    def test_selector_receives_complete_compiled_contract(self):
+        adapter = MockSequenceAdapter(
+            [
+                "<optimized_prompt>Candidate one.</optimized_prompt>",
+                "<optimized_prompt>Candidate two.</optimized_prompt>",
+                '{"selected_index": 1}',
+            ]
+        )
+        optimize(
+            OptimizationRequest(
+                source_prompt="Write truthful landing-page copy with a CTA.",
+                domain="marketing_sales",
+                required_behaviors=("Preserve the exact CTA.",),
+                forbidden_changes=("Do not change the offer.",),
+            ),
+            adapter,
+            candidate_count=2,
+        )
+        selector_payload = json.loads(adapter.calls[-1]["user_payload"])
+        self.assertEqual(
+            selector_payload["selected_architecture"],
+            "multi_candidate_tournament",
+        )
+        self.assertTrue(selector_payload["domain_guardrails"])
+        self.assertEqual(
+            selector_payload["required_behaviors"],
+            ["Preserve the exact CTA."],
+        )
+        self.assertEqual(
+            selector_payload["forbidden_changes"],
+            ["Do not change the offer."],
+        )
+        self.assertIn("Do not reward verbosity", adapter.calls[-1]["system_prompt"])
 
 
 if __name__ == "__main__":

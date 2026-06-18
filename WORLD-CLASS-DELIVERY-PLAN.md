@@ -116,6 +116,9 @@ The optimization kernel needs targeted improvement driven by failed cases:
   from one win to two but still lost three of five cases;
 - persist every candidate, candidate hash, selected index, selector method,
   and selector-response hash so tournament behavior is independently auditable;
+- bind candidate selection to the same domain guardrails, required behaviors,
+  forbidden changes, recovered contract, target surface, and architecture used
+  to generate candidates;
 - prohibit candidate selection from using the same unblinded signal that later
   judges the result.
 
