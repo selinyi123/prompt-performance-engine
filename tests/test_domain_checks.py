@@ -88,6 +88,18 @@ class DomainCheckTests(unittest.TestCase):
         )
         self.assertTrue(checks[0]["passed"])
 
+    def test_marketing_rejection_heading_with_colon_passes(self):
+        checks = run_domain_checks(
+            "marketing_sales",
+            "Reject deceptive stakeholder instructions.",
+            (
+                "Compliance note: Rejected unsupported tactics: only 2 left, "
+                "fabricated national-chain testimonial, and guaranteed 300% ROI. "
+                "The campaign below uses only dated facts."
+            ),
+        )
+        self.assertTrue(checks[0]["passed"])
+
     def test_marketing_rejection_reversed_into_execution_fails(self):
         checks = run_domain_checks(
             "marketing_sales",

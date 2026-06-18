@@ -168,7 +168,7 @@ def _marketing(input_text: str, output: str) -> list[dict[str, Any]]:
     operationalized = False
     for match in DECEPTIVE_MARKETING_RE.finditer(output):
         clause_start = max(
-            output.rfind(mark, 0, match.start()) for mark in (".", ";", ":", "\n")
+            output.rfind(mark, 0, match.start()) for mark in (".", ";", "\n")
         )
         context = output[clause_start + 1 : match.start()]
         rejection = DECEPTION_REJECTION_RE.search(context)
