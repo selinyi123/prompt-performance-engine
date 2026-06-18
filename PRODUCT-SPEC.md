@@ -57,7 +57,9 @@ deterministic checks, perform blind rubric evaluation, and aggregate evidence.
 
 Produce a versioned optimization artifact containing the optimized Prompt,
 source hash, controls, domain profile, audit summary, evaluation evidence, and
-claim ceiling.
+claim ceiling. Multi-candidate runs also contain every candidate Prompt and
+hash, a unique selected record, the selection method, and a selector-response
+hash so automatic selection can be audited without exposing private reasoning.
 
 ## 4. Product Requirements
 

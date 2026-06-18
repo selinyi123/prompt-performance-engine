@@ -60,6 +60,42 @@ class CliTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertTrue(artifact.is_file())
 
+    def test_mock_optimize_records_three_candidate_selection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prompt = root / "prompt.txt"
+            artifact = root / "artifact.json"
+            prompt.write_text("Write a report.", encoding="utf-8")
+            responses = []
+            for index in range(1, 4):
+                response = root / f"candidate-{index}.txt"
+                response.write_text(
+                    f"<optimized_prompt>Candidate {index}.</optimized_prompt>",
+                    encoding="utf-8",
+                )
+                responses.append(response)
+            selector = root / "selector.json"
+            selector.write_text('{"selected_index": 2}', encoding="utf-8")
+
+            argv = [
+                "optimize",
+                str(prompt),
+                "--candidate-count",
+                "3",
+                "--artifact",
+                str(artifact),
+            ]
+            for response in [*responses, selector]:
+                argv.extend(["--mock-response", str(response)])
+            with redirect_stdout(io.StringIO()):
+                exit_code = main(argv)
+
+            self.assertEqual(exit_code, 0)
+            data = json.loads(artifact.read_text(encoding="utf-8"))
+            self.assertEqual(validate_artifact(data), [])
+            self.assertEqual(data["runtime"]["selection"]["selected_index"], 2)
+            self.assertEqual(data["runtime"]["selection"]["candidate_count"], 3)
+
     def test_external_command_end_to_end(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

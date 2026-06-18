@@ -33,6 +33,14 @@
   stored v20 optimized outputs pass the v21 hard-check on offline replay.
 - Attempted the v21 real marketing rerun, but the provider usage limit blocked
   generation before any case result. No v21 performance claim is recorded.
+- Completed that v21 rerun at 1W/1T/3L and fixed a rejection-heading colon
+  false positive in the authoritative marketing hard-check.
+- Ran a v22 three-candidate marketing diagnostic: 2W/0T/3L with zero hard,
+  critical, or fatal regressions. The domain gate still failed.
+- Added v23 artifact-bound tournament evidence: all candidate Prompts and
+  hashes, selected index, selector method, and selector-response hash.
+- Exposed `candidate_count` through mock, OpenAI, external-command, and Codex
+  CLIs plus the persistent HTTP service, with validation and idempotency binding.
 - Fixed forbidden-substring checks for rejected requests, warning contexts, and
   Chinese refusal language, plus case-insensitive required-text matching.
 - Extended restricted Python verification to include referenced safe literal

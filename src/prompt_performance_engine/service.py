@@ -289,6 +289,17 @@ class OptimizationService:
             schema_version=data.get("schema_version", "1.0.0"),
         )
 
+    @staticmethod
+    def _candidate_count_from_data(data: dict[str, Any]) -> int:
+        candidate_count = data.get("candidate_count", 1)
+        if (
+            not isinstance(candidate_count, int)
+            or isinstance(candidate_count, bool)
+            or not 1 <= candidate_count <= 5
+        ):
+            raise ValueError("candidate_count must be an integer between 1 and 5.")
+        return candidate_count
+
     def submit(
         self,
         request_data: dict[str, Any],
@@ -297,12 +308,12 @@ class OptimizationService:
     ) -> dict[str, Any]:
         request = self._request_from_data(request_data)
         request.validate()
+        candidate_count = self._candidate_count_from_data(request_data)
         if not idempotency_key.strip() or len(idempotency_key) > 200:
             raise ValueError("Idempotency-Key must contain 1 to 200 characters.")
-        job, created = self.store.create_or_get(
-            request.to_dict(),
-            idempotency_key,
-        )
+        normalized_request = request.to_dict()
+        normalized_request["candidate_count"] = candidate_count
+        job, created = self.store.create_or_get(normalized_request, idempotency_key)
         if created:
             self.metrics.increment("submitted")
             self._queue.put(job["job_id"])
@@ -352,8 +363,14 @@ class OptimizationService:
             try:
                 if not self.store.mark_running(job_id):
                     continue
-                request = self._request_from_data(self.store.request_for(job_id))
-                result = optimize(request, self.adapter_factory())
+                request_data = self.store.request_for(job_id)
+                request = self._request_from_data(request_data)
+                candidate_count = self._candidate_count_from_data(request_data)
+                result = optimize(
+                    request,
+                    self.adapter_factory(),
+                    candidate_count=candidate_count,
+                )
                 relative = self.artifacts.write(job_id, result.artifact)
                 self.store.mark_succeeded(job_id, relative)
                 self.metrics.increment("succeeded")

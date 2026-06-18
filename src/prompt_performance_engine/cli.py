@@ -89,7 +89,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     optimize_parser = subparsers.add_parser("optimize")
     optimize_parser.add_argument("prompt_file", type=Path)
-    optimize_parser.add_argument("--mock-response", type=Path, required=True)
+    optimize_parser.add_argument(
+        "--mock-response",
+        type=Path,
+        action="append",
+        required=True,
+        help="Repeat for each candidate and the selector response.",
+    )
+    optimize_parser.add_argument(
+        "--candidate-count", type=int, choices=range(1, 6), default=1
+    )
     optimize_parser.add_argument("--domain")
     optimize_parser.add_argument(
         "--mode",
@@ -110,6 +119,9 @@ def build_parser() -> argparse.ArgumentParser:
     openai_parser.add_argument("--api-key-env", default="OPENAI_API_KEY")
     openai_parser.add_argument("--timeout", type=float, default=120.0)
     openai_parser.add_argument("--max-retries", type=int, default=2)
+    openai_parser.add_argument(
+        "--candidate-count", type=int, choices=range(1, 6), default=1
+    )
     openai_parser.add_argument("--domain")
     openai_parser.add_argument(
         "--mode",
@@ -128,6 +140,9 @@ def build_parser() -> argparse.ArgumentParser:
     command_parser.add_argument("--permissions", type=Path, required=True)
     command_parser.add_argument("--model", default="external-command")
     command_parser.add_argument("--timeout", type=float, default=120.0)
+    command_parser.add_argument(
+        "--candidate-count", type=int, choices=range(1, 6), default=1
+    )
     command_parser.add_argument("--domain")
     command_parser.add_argument(
         "--mode",
@@ -157,6 +172,9 @@ def build_parser() -> argparse.ArgumentParser:
         default="low",
     )
     codex_parser.add_argument("--timeout", type=float, default=300.0)
+    codex_parser.add_argument(
+        "--candidate-count", type=int, choices=range(1, 6), default=1
+    )
     codex_parser.add_argument("--domain")
     codex_parser.add_argument(
         "--mode",
@@ -451,8 +469,14 @@ def main(argv: list[str] | None = None) -> int:
             mode=args.mode,
             output_format=args.output_format,
         )
-        response = args.mock_response.read_text(encoding="utf-8")
-        result = optimize(request, MockSequenceAdapter([response]))
+        responses = [
+            path.read_text(encoding="utf-8") for path in args.mock_response
+        ]
+        result = optimize(
+            request,
+            MockSequenceAdapter(responses),
+            candidate_count=args.candidate_count,
+        )
         if args.artifact:
             _write_json(args.artifact, result.artifact)
         print(result.optimized_prompt)
@@ -472,7 +496,11 @@ def main(argv: list[str] | None = None) -> int:
             timeout_seconds=args.timeout,
             retry_policy=RetryPolicy(max_retries=args.max_retries),
         )
-        result = optimize(request, adapter)
+        result = optimize(
+            request,
+            adapter,
+            candidate_count=args.candidate_count,
+        )
         if args.artifact:
             _write_json(args.artifact, result.artifact)
         print(result.optimized_prompt)
@@ -497,6 +525,7 @@ def main(argv: list[str] | None = None) -> int:
                 model=args.model,
                 timeout_seconds=args.timeout,
             ),
+            candidate_count=args.candidate_count,
         )
         if args.artifact:
             _write_json(args.artifact, result.artifact)
@@ -518,6 +547,7 @@ def main(argv: list[str] | None = None) -> int:
                 reasoning_effort=args.reasoning_effort,
                 timeout_seconds=args.timeout,
             ),
+            candidate_count=args.candidate_count,
         )
         if args.artifact:
             _write_json(args.artifact, result.artifact)

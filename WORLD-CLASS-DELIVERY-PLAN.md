@@ -111,7 +111,11 @@ The optimization kernel needs targeted improvement driven by failed cases:
 - add regression fixtures before changing optimizer wording;
 - preserve requested deliverables while removing only harmful constraints;
 - keep tool-aware behavior conditional on the actual target surface;
-- improve candidate selection only after single-candidate behavior is stable;
+- retain single-candidate as the release default until multi-candidate runs
+  pass domain gates; the first marketing three-candidate diagnostic improved
+  from one win to two but still lost three of five cases;
+- persist every candidate, candidate hash, selected index, selector method,
+  and selector-response hash so tournament behavior is independently auditable;
 - prohibit candidate selection from using the same unblinded signal that later
   judges the result.
 
@@ -318,6 +322,9 @@ Status: locally complete; independent reproduction pending.
 
 - completed concrete payload hardening for 24 source- or tool-dependent cases;
 - completed fail-closed validation against abstract placeholder tasks;
+- completed CLI/API exposure and artifact-bound evidence for 1-5 candidate
+  generation and automatic selection;
+- completed a five-case three-candidate marketing diagnostic at 2W/0T/3L;
 - run all 12 domains and 60 cases;
 - analyze every loss and fatal flaw;
 - add regression tests before optimizer changes;

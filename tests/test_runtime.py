@@ -21,6 +21,11 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result.artifact["evidence"]["level"], "E1")
         self.assertTrue(result.artifact["audit"]["optimized"]["passed"])
         self.assertEqual(result.artifact["runtime"]["total_calls"], 1)
+        self.assertEqual(
+            result.artifact["runtime"]["selection"]["method"],
+            "single_candidate",
+        )
+        self.assertEqual(result.selected_index, 1)
         self.assertEqual(result.repair_count, 0)
 
     def test_one_bounded_repair(self):
@@ -102,6 +107,21 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result.optimized_prompt, "Candidate two.")
         self.assertEqual(result.artifact["runtime"]["total_calls"], 4)
         self.assertEqual(len(adapter.calls), 4)
+        self.assertEqual(result.candidates, (
+            "Candidate one.",
+            "Candidate two.",
+            "Candidate three.",
+        ))
+        self.assertEqual(result.selected_index, 2)
+        selection = result.artifact["runtime"]["selection"]
+        self.assertEqual(selection["method"], "model_selector")
+        self.assertEqual(selection["candidate_count"], 3)
+        self.assertEqual(selection["selected_index"], 2)
+        self.assertEqual(len(selection["selector_response_sha256"]), 64)
+        self.assertEqual(
+            [item["selected"] for item in selection["candidates"]],
+            [False, True, False],
+        )
 
 
 if __name__ == "__main__":

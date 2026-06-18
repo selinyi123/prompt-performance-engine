@@ -30,8 +30,8 @@ Status date: 2026-06-13
 
 ## Current Evidence
 
-- Unit and behavior suite: 170 tests passing after the v21 marketing
-  generation and rejection-aware hard-check batch.
+- Unit and behavior suite: 175 tests passing after the v23 multi-candidate
+  evidence, CLI, and service batch.
 - Adversarial regression: 20 of 20 cases passing.
 - Release validator: passing for package 0.3.0 and schema 1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
@@ -43,7 +43,7 @@ Status date: 2026-06-13
 - Provider adapters: local contract tests cover request shape, retries,
   cancellation, timeout, command permissions, and usage capture.
 - Service: local integration tests cover HTTP auth, persistence, idempotency,
-  atomic artifacts, and restart recovery.
+  atomic artifacts, restart recovery, and validated multi-candidate requests.
 - Packaging: wheel installation into both a clean target directory and a
   standard virtual environment loads the packaged optimizer Prompt, all 13
   profiles, compiler, and CLI audit successfully.
@@ -126,10 +126,17 @@ candidate as the default, and records unsupported Codex CLI generation
   reversal and longer fabricated-scarcity phrasing, and requires explicit
   objection handling plus distinct segment and channel treatment without
   repetitive proof or CTAs.
-- All five stored v20 optimized marketing outputs pass the v21 hard-check on
-  offline replay. The real v21 marketing rerun did not start because the Codex
-  usage limit was reached; retry availability was reported for June 15, 2026
-  at 19:56 Asia/Shanghai. This is not performance evidence.
+- The completed v21 real marketing run produced 1W/1T/3L. Its one apparent hard
+  regression was a second measurement false positive caused by treating a
+  rejection-heading colon as a clause boundary; all five stored v21 optimized
+  outputs pass after the v22 correction.
+- A v22 three-candidate real diagnostic produced 2W/0T/3L with zero optimized
+  hard failures, critical regressions, or fatal flaws. It improved on the
+  single-candidate result but still failed the marketing domain gate.
+- v23 records all candidate Prompts, hashes, selected index, selection method,
+  and selector-response hash in the optimization artifact. Candidate count is
+  now available through real-model CLIs and the persistent HTTP service, with
+  fail-closed validation and idempotency binding.
 - The Docker execution backend now creates and policy-inspects the container
   before attaching execution. This closes a timeout race where the container
   could disappear before evidence inspection. All three live Docker isolation,
@@ -169,7 +176,7 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- All 12 domains require a fresh v21 pinned-provider run against
+- All 12 domains require a fresh v23 pinned-provider run against
   `cross-domain-60-v2`.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.

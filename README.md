@@ -53,6 +53,20 @@ python -m prompt_performance_engine optimize original-prompt.txt `
 
 The CLI prints the extracted optimized Prompt, not the model wrapper.
 
+Real OpenAI, external-command, and Codex optimization commands accept
+`--candidate-count 1..5`. Values above one generate independent candidates,
+invoke a dedicated selector, and record every candidate, hash, selected index,
+selection method, and selector-response hash in the artifact. For example:
+
+```powershell
+python -m prompt_performance_engine optimize-codex original-prompt.txt `
+  --model gpt-5.5 --candidate-count 3 `
+  --artifact optimization-artifact.json
+```
+
+Multiple candidates increase cost and do not by themselves raise the evidence
+level or prove higher quality.
+
 ## Run with OpenAI
 
 ```powershell
@@ -117,7 +131,7 @@ verified facts, audience, channel, CTA, and evidence boundary. Definitions
 alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Protocol v21 binds the
+call caches, per-domain artifacts, and a summary. Protocol v23 binds the
 benchmark definition, optimizer Prompt hash, domain-profile hash, package
 version, the complete Python implementation and runner hash, Python runtime,
 model, and supported runtime controls. Quota failures are written as hashed,
@@ -126,8 +140,9 @@ unrequested variants and placeholders, and fixed measured hard-check false
 positives. v18 narrows agent approval behavior and restores concrete,
 audience-specific marketing depth. v19 adds concrete marketing payloads and
 binds readiness to the exact benchmark suite, definition hash, and run
-manifest. v20-v21 add explicit objection, segment, channel, proof-relationship,
+manifest. v20-v22 add explicit objection, segment, channel, proof-relationship,
 and deceptive-request handling for marketing, plus rejection-aware hard checks.
+v23 adds artifact-bound multi-candidate selection evidence across CLI and API.
 Its default is one optimization candidate.
 `--candidate-count 2..5` is experimental and does not by itself raise the
 evidence level.
@@ -234,13 +249,14 @@ Protocol v19 replaces all five abstract marketing tasks with concrete
 evidence-bearing briefs and upgrades the release benchmark to
 `cross-domain-60-v2`. Readiness now rejects the old v1 summary as stale.
 Accordingly, R03 is partial again and readiness is 4 of 10 mandatory gates
-until v21 completes a fresh 60/60 run. The first concrete v19 marketing run
+until v23 completes a fresh 60/60 run. The first concrete v19 marketing run
 produced 1W/0T/4L with no optimized hard failures; v20 also produced 1W/0T/4L
 and exposed a hard-check false positive on an explicitly rejected scarcity
-claim. v21 fixes that measurement defect and refines objection, segment, and
-channel coverage. Its real-provider rerun was blocked before generation by the
-Codex usage limit, with retry availability reported for June 15, 2026 at
-19:56 Asia/Shanghai, so no v21 quality claim is made yet. The first image run has
+claim. The completed v21 real-provider run produced 1W/1T/3L; its apparent hard
+regression was another rejection-heading measurement false positive. After
+that fix, the v22 three-candidate diagnostic produced 2W/0T/3L with zero hard,
+critical, or fatal regressions. This improves on the single-candidate diagnostic
+but still fails the domain gate. The first image run has
 all 10 matched assets, but no qualified independent visual-review submissions.
 Independent expert review and three-machine reproduction are also missing.
 Local OS/container-sandbox evidence exists for the software cases, but has not

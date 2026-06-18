@@ -39,12 +39,17 @@ class OptimizationResult:
     artifact: dict[str, Any]
     repair_count: int
     model_calls: tuple[dict[str, Any], ...]
+    candidates: tuple[str, ...]
+    selected_index: int
 
 
 def _artifact(
     compiled: dict[str, Any],
     optimized_prompt: str,
     model_calls: list[dict[str, Any]],
+    candidates: list[str],
+    selected_index: int,
+    selector_response_sha256: str | None,
 ) -> dict[str, Any]:
     runtime_request = compiled["runtime_request"]
     source = json.loads(runtime_request["source_prompt"])
@@ -67,6 +72,25 @@ def _artifact(
             "model_calls": model_calls,
             "total_calls": len(model_calls),
             "total_usage": _aggregate_usage(model_calls),
+            "selection": {
+                "method": (
+                    "model_selector" if len(candidates) > 1 else "single_candidate"
+                ),
+                "candidate_count": len(candidates),
+                "selected_index": selected_index + 1,
+                "selector_response_sha256": selector_response_sha256,
+                "candidates": [
+                    {
+                        "index": index,
+                        "prompt": candidate,
+                        "prompt_sha256": hashlib.sha256(
+                            candidate.encode("utf-8")
+                        ).hexdigest(),
+                        "selected": index == selected_index + 1,
+                    }
+                    for index, candidate in enumerate(candidates, start=1)
+                ],
+            },
         },
         "audit": {
             "source": source_audit.to_dict(),
@@ -139,7 +163,7 @@ def _select_candidate(
     adapter: ModelAdapter,
     cancellation: CancellationToken | None,
     model_calls: list[dict[str, Any]],
-) -> int:
+) -> tuple[int, str]:
     runtime_request = compiled["runtime_request"]
     payload = json.dumps(
         {
@@ -176,7 +200,10 @@ def _select_candidate(
         raise ValueError("Candidate selector returned an invalid selected_index.")
     if not 1 <= selected <= len(candidates):
         raise ValueError("Candidate selector selected an out-of-range candidate.")
-    return selected - 1
+    return (
+        selected - 1,
+        hashlib.sha256(response.text.encode("utf-8")).hexdigest(),
+    )
 
 
 def optimize(
@@ -221,8 +248,9 @@ def optimize(
         repairs += repair_count
 
     selected_index = 0
+    selector_response_sha256 = None
     if len(candidates) > 1:
-        selected_index = _select_candidate(
+        selected_index, selector_response_sha256 = _select_candidate(
             compiled=compiled,
             candidates=candidates,
             adapter=adapter,
@@ -232,7 +260,14 @@ def optimize(
     optimized_prompt = candidates[selected_index]
     raw = raw_responses[selected_index]
 
-    artifact = _artifact(compiled, optimized_prompt, model_calls)
+    artifact = _artifact(
+        compiled,
+        optimized_prompt,
+        model_calls,
+        candidates,
+        selected_index,
+        selector_response_sha256,
+    )
     violations = validate_artifact(artifact)
     if violations:
         details = "; ".join(item.detail for item in violations)
@@ -243,4 +278,6 @@ def optimize(
         artifact=artifact,
         repair_count=repairs,
         model_calls=tuple(model_calls),
+        candidates=tuple(candidates),
+        selected_index=selected_index + 1,
     )

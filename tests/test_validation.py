@@ -89,6 +89,57 @@ class ArtifactValidationTests(unittest.TestCase):
         )
         self.assertTrue(validate_artifact(artifact))
 
+    def test_tampered_candidate_selection_fails(self):
+        artifact = valid_artifact()
+        prompt = artifact["optimized_prompt"]
+        artifact["runtime"]["selection"] = {
+            "method": "single_candidate",
+            "candidate_count": 1,
+            "selected_index": 1,
+            "selector_response_sha256": None,
+            "candidates": [
+                {
+                    "index": 1,
+                    "prompt": prompt + " tampered",
+                    "prompt_sha256": hashlib.sha256(
+                        prompt.encode("utf-8")
+                    ).hexdigest(),
+                    "selected": True,
+                }
+            ],
+        }
+        artifact["artifact_payload_sha256"] = hash_payload(
+            artifact,
+            "artifact_payload_sha256",
+        )
+        self.assertTrue(validate_artifact(artifact))
+
+    def test_malformed_candidate_selection_fails_without_exception(self):
+        artifact = valid_artifact()
+        artifact["runtime"]["selection"] = {
+            "method": "model_selector",
+            "candidate_count": None,
+            "selected_index": True,
+            "selector_response_sha256": None,
+            "candidates": [
+                {
+                    "index": True,
+                    "prompt": artifact["optimized_prompt"],
+                    "prompt_sha256": hashlib.sha256(
+                        artifact["optimized_prompt"].encode("utf-8")
+                    ).hexdigest(),
+                    "selected": True,
+                }
+            ],
+        }
+        artifact["artifact_payload_sha256"] = hash_payload(
+            artifact,
+            "artifact_payload_sha256",
+        )
+        violations = validate_artifact(artifact)
+        self.assertTrue(violations)
+        self.assertTrue(all(item.rule_id == "A09" for item in violations))
+
     def test_mojibake_fails(self):
         artifact = valid_artifact()
         artifact["optimized_prompt"] = (

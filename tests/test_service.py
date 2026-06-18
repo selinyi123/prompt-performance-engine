@@ -25,11 +25,12 @@ MODEL_RESPONSE = (
 
 
 class ServiceTests(unittest.TestCase):
-    def make_service(self, root):
+    def make_service(self, root, responses=None):
+        sequence = list(responses or [MODEL_RESPONSE])
         return OptimizationService(
             store=JobStore(root / "jobs.sqlite3"),
             artifacts=ArtifactStore(root / "artifacts"),
-            adapter_factory=lambda: MockSequenceAdapter([MODEL_RESPONSE]),
+            adapter_factory=lambda: MockSequenceAdapter(sequence),
         )
 
     def wait_for(self, service, job_id, timeout=2):
@@ -103,7 +104,15 @@ class ServiceTests(unittest.TestCase):
     def test_http_auth_health_and_job_flow(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            service = self.make_service(root)
+            service = self.make_service(
+                root,
+                [
+                    "<optimized_prompt>Candidate one.</optimized_prompt>",
+                    "<optimized_prompt>Candidate two.</optimized_prompt>",
+                    "<optimized_prompt>Candidate three.</optimized_prompt>",
+                    '{"selected_index": 2}',
+                ],
+            )
             server = create_http_server(
                 service,
                 host="127.0.0.1",
@@ -124,6 +133,7 @@ class ServiceTests(unittest.TestCase):
                         "source_prompt": "Write a report.",
                         "mode": "maximum_quality",
                         "output_format": "standard",
+                        "candidate_count": 3,
                     }
                 ).encode()
                 unauthorized = urllib.request.Request(
@@ -161,11 +171,34 @@ class ServiceTests(unittest.TestCase):
                 with urllib.request.urlopen(artifact_request, timeout=1) as response:
                     artifact = json.loads(response.read())
                 self.assertEqual(validate_artifact(artifact), [])
+                self.assertEqual(
+                    artifact["runtime"]["selection"]["candidate_count"],
+                    3,
+                )
+                self.assertEqual(
+                    artifact["runtime"]["selection"]["selected_index"],
+                    2,
+                )
             finally:
                 server.shutdown()
                 server.server_close()
                 service.stop()
                 thread.join(1)
+
+    def test_service_rejects_invalid_candidate_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            service = self.make_service(Path(directory))
+            try:
+                with self.assertRaisesRegex(ValueError, "candidate_count"):
+                    service.submit(
+                        {
+                            "source_prompt": "Write a report.",
+                            "candidate_count": 0,
+                        },
+                        idempotency_key="invalid-count",
+                    )
+            finally:
+                service.stop()
 
 
 if __name__ == "__main__":

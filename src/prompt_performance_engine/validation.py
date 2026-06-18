@@ -167,6 +167,97 @@ def validate_artifact(data: Any) -> list[Violation]:
             if runtime_data.get("total_usage") != calculated_usage:
                 violations.append(Violation("A09", "runtime total_usage mismatch."))
 
+        selection = runtime_data.get("selection")
+        if selection is not None:
+            if not isinstance(selection, dict):
+                violations.append(Violation("A09", "runtime selection is invalid."))
+            else:
+                candidates = selection.get("candidates")
+                candidate_count = selection.get("candidate_count")
+                selected_index = selection.get("selected_index")
+                method = selection.get("method")
+                selector_hash = selection.get("selector_response_sha256")
+                valid_candidates = (
+                    isinstance(candidates, list) and 1 <= len(candidates) <= 5
+                )
+                valid_count = (
+                    isinstance(candidate_count, int)
+                    and not isinstance(candidate_count, bool)
+                    and valid_candidates
+                    and candidate_count == len(candidates)
+                )
+                valid_selected_index = (
+                    isinstance(selected_index, int)
+                    and not isinstance(selected_index, bool)
+                    and valid_candidates
+                    and 1 <= selected_index <= len(candidates)
+                )
+                if not valid_count or not valid_selected_index:
+                    violations.append(
+                        Violation("A09", "runtime selection candidate count mismatch.")
+                    )
+                if valid_candidates:
+                    selected_records: list[dict[str, Any]] = []
+                    for expected_index, candidate in enumerate(candidates, start=1):
+                        if not isinstance(candidate, dict):
+                            violations.append(
+                                Violation("A09", "runtime selection candidate is invalid.")
+                            )
+                            continue
+                        prompt = candidate.get("prompt")
+                        index = candidate.get("index")
+                        if (
+                            not isinstance(index, int)
+                            or isinstance(index, bool)
+                            or index != expected_index
+                        ):
+                            violations.append(
+                                Violation("A09", "runtime candidate index mismatch.")
+                            )
+                        if (
+                            not isinstance(prompt, str)
+                            or not prompt.strip()
+                            or candidate.get("prompt_sha256")
+                            != hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+                        ):
+                            violations.append(
+                                Violation("A09", "runtime candidate hash mismatch.")
+                            )
+                        if candidate.get("selected") is True:
+                            selected_records.append(candidate)
+                    if (
+                        len(selected_records) != 1
+                        or selected_records[0].get("index") != selected_index
+                        or selected_records[0].get("prompt") != optimized_prompt
+                    ):
+                        violations.append(
+                            Violation("A09", "runtime selected candidate mismatch.")
+                        )
+                    expected_method = (
+                        "model_selector"
+                        if len(candidates) > 1
+                        else "single_candidate"
+                    )
+                    if method != expected_method:
+                        violations.append(
+                            Violation("A09", "runtime selection method mismatch.")
+                        )
+                    if len(candidates) > 1:
+                        if (
+                            not isinstance(selector_hash, str)
+                            or not SHA256_RE.fullmatch(selector_hash)
+                        ):
+                            violations.append(
+                                Violation("A09", "runtime selector hash is invalid.")
+                            )
+                    elif selector_hash is not None:
+                        violations.append(
+                            Violation(
+                                "A09",
+                                "single-candidate runtime must not have a selector hash.",
+                            )
+                        )
+
     artifact_hash = data["artifact_payload_sha256"]
     if (
         not isinstance(artifact_hash, str)
