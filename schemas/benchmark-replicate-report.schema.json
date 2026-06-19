@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/1.0.0/benchmark-replicate-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "report_type", "suite_id",
+    "benchmark_definition_sha256", "compatibility_configuration",
+    "compatibility_sha256", "replicate_count", "replicates", "coverage",
+    "cases", "domain_results", "aggregate", "evidence", "report_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "report_type": {"const": "benchmark_replicate_aggregate"},
+    "suite_id": {"type": "string", "minLength": 1},
+    "benchmark_definition_sha256": {"$ref": "#/$defs/sha256"},
+    "compatibility_configuration": {"type": "object"},
+    "compatibility_sha256": {"$ref": "#/$defs/sha256"},
+    "replicate_count": {"type": "integer", "minimum": 3},
+    "replicates": {
+      "type": "array", "minItems": 3,
+      "items": {"$ref": "#/$defs/replicate"}
+    },
+    "coverage": {"$ref": "#/$defs/coverage"},
+    "cases": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "#/$defs/case"}
+    },
+    "domain_results": {
+      "type": "object", "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/domainResult"}
+    },
+    "aggregate": {"$ref": "#/$defs/aggregate"},
+    "evidence": {"$ref": "#/$defs/evidence"},
+    "report_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+    "count": {"type": "integer", "minimum": 0},
+    "outcome": {"enum": ["win", "tie", "loss"]},
+    "replicate": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "replicate_id", "run_manifest_sha256", "summary_sha256",
+        "optimization_artifact_sha256", "evaluation_sha256",
+        "run_fingerprint_sha256", "domain_count", "case_count", "wins", "ties",
+        "losses", "critical_regressions", "fatal_flaws",
+        "optimized_hard_failures", "aggregate_gate_passed"
+      ],
+      "properties": {
+        "replicate_id": {"$ref": "#/$defs/id"},
+        "run_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "summary_sha256": {"$ref": "#/$defs/sha256"},
+        "optimization_artifact_sha256": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/sha256"}},
+        "evaluation_sha256": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/sha256"}},
+        "run_fingerprint_sha256": {"$ref": "#/$defs/sha256"},
+        "domain_count": {"$ref": "#/$defs/count"},
+        "case_count": {"$ref": "#/$defs/count"},
+        "wins": {"$ref": "#/$defs/count"},
+        "ties": {"$ref": "#/$defs/count"},
+        "losses": {"$ref": "#/$defs/count"},
+        "critical_regressions": {"$ref": "#/$defs/count"},
+        "fatal_flaws": {"$ref": "#/$defs/count"},
+        "optimized_hard_failures": {"$ref": "#/$defs/count"},
+        "aggregate_gate_passed": {"type": "boolean"}
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["domains", "domain_count", "case_count", "observation_count"],
+      "properties": {
+        "domains": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "domain_count": {"$ref": "#/$defs/count"},
+        "case_count": {"$ref": "#/$defs/count"},
+        "observation_count": {"$ref": "#/$defs/count"}
+      }
+    },
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["replicate_id", "outcome", "critical_regression", "fatal_flaw", "optimized_hard_failure"],
+      "properties": {
+        "replicate_id": {"$ref": "#/$defs/id"},
+        "outcome": {"$ref": "#/$defs/outcome"},
+        "critical_regression": {"type": "boolean"},
+        "fatal_flaw": {"type": "boolean"},
+        "optimized_hard_failure": {"type": "boolean"}
+      }
+    },
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": ["domain", "case_id", "case_sha256", "outcome_counts", "observations", "consensus", "consensus_basis", "agreement_ratio", "stable"],
+      "properties": {
+        "domain": {"type": "string", "minLength": 1},
+        "case_id": {"type": "string", "minLength": 1},
+        "case_sha256": {"$ref": "#/$defs/sha256"},
+        "outcome_counts": {"type": "object", "additionalProperties": false, "required": ["win", "tie", "loss"], "properties": {"win": {"$ref": "#/$defs/count"}, "tie": {"$ref": "#/$defs/count"}, "loss": {"$ref": "#/$defs/count"}}},
+        "observations": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/observation"}},
+        "consensus": {"$ref": "#/$defs/outcome"},
+        "consensus_basis": {"enum": ["unanimous", "plurality", "tied_plurality"]},
+        "agreement_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "stable": {"type": "boolean"}
+      }
+    },
+    "domainRun": {
+      "type": "object", "additionalProperties": false,
+      "required": ["replicate_id", "case_count", "wins", "ties", "losses", "critical_regressions", "fatal_flaws", "optimized_hard_failures", "gate_passed"],
+      "properties": {
+        "replicate_id": {"$ref": "#/$defs/id"},
+        "case_count": {"$ref": "#/$defs/count"},
+        "wins": {"$ref": "#/$defs/count"},
+        "ties": {"$ref": "#/$defs/count"},
+        "losses": {"$ref": "#/$defs/count"},
+        "critical_regressions": {"$ref": "#/$defs/count"},
+        "fatal_flaws": {"$ref": "#/$defs/count"},
+        "optimized_hard_failures": {"$ref": "#/$defs/count"},
+        "gate_passed": {"type": "boolean"}
+      }
+    },
+    "domainResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_count", "consensus_wins", "consensus_ties", "consensus_losses", "critical_regressions", "fatal_flaws", "optimized_hard_failures", "all_individual_gates_passed", "consensus_gate_passed", "gate_passed", "replicate_results"],
+      "properties": {
+        "case_count": {"$ref": "#/$defs/count"},
+        "consensus_wins": {"$ref": "#/$defs/count"},
+        "consensus_ties": {"$ref": "#/$defs/count"},
+        "consensus_losses": {"$ref": "#/$defs/count"},
+        "critical_regressions": {"$ref": "#/$defs/count"},
+        "fatal_flaws": {"$ref": "#/$defs/count"},
+        "optimized_hard_failures": {"$ref": "#/$defs/count"},
+        "all_individual_gates_passed": {"type": "boolean"},
+        "consensus_gate_passed": {"type": "boolean"},
+        "gate_passed": {"type": "boolean"},
+        "replicate_results": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/domainRun"}}
+      }
+    },
+    "aggregate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["consensus_wins", "consensus_ties", "consensus_losses", "net_improvement", "critical_regressions", "fatal_flaws", "optimized_hard_failures", "stable_cases", "unstable_cases", "exact_agreement_rate", "full_release_coverage", "all_individual_release_gates_passed", "all_domain_gates_passed", "diagnostic_gate_passed", "release_gate_passed"],
+      "properties": {
+        "consensus_wins": {"$ref": "#/$defs/count"},
+        "consensus_ties": {"$ref": "#/$defs/count"},
+        "consensus_losses": {"$ref": "#/$defs/count"},
+        "net_improvement": {"type": "number", "minimum": -1, "maximum": 1},
+        "critical_regressions": {"$ref": "#/$defs/count"},
+        "fatal_flaws": {"$ref": "#/$defs/count"},
+        "optimized_hard_failures": {"$ref": "#/$defs/count"},
+        "stable_cases": {"$ref": "#/$defs/count"},
+        "unstable_cases": {"$ref": "#/$defs/count"},
+        "exact_agreement_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "full_release_coverage": {"type": "boolean"},
+        "all_individual_release_gates_passed": {"type": "boolean"},
+        "all_domain_gates_passed": {"type": "boolean"},
+        "diagnostic_gate_passed": {"type": "boolean"},
+        "release_gate_passed": {"type": "boolean"}
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["level", "status", "claim", "limitations"],
+      "properties": {
+        "level": {"enum": ["E0", "E1", "E2", "E3", "E4", "E5"]},
+        "status": {"enum": ["candidate", "verified_scoped"]},
+        "claim": {"type": "string", "minLength": 1},
+        "limitations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}

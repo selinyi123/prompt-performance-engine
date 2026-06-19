@@ -49,6 +49,7 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             model="model-a",
             reasoning_effort="low",
             candidate_count=1,
+            replicate_id="replicate-a",
         )
 
         self.assertEqual(len(configuration["optimizer_prompt_sha256"]), 64)
@@ -67,6 +68,7 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             configuration["evaluation_protocol"],
             RUNNER.EVALUATION_PROTOCOL,
         )
+        self.assertEqual(configuration["replicate_id"], "replicate-a")
 
     def test_implementation_hash_binds_adapter_source(self):
         relative = {
@@ -173,7 +175,7 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             self.assertEqual(usage["input_tokens"], 300)
             self.assertEqual(usage["output_tokens"], 30)
 
-    def test_full_passing_summary_can_reach_repeated_run_e3(self):
+    def test_single_full_passing_summary_is_capped_at_e2(self):
         result = {
             "case_count": 5,
             "wins": 3,
@@ -202,12 +204,13 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             )
 
         self.assertTrue(summary["aggregate_gate_passed"])
-        self.assertEqual(summary["evidence"]["level"], "E3")
+        self.assertEqual(summary["evidence"]["level"], "E2")
         self.assertEqual(
             summary["evaluation_protocol"]["version"],
             RUNNER.EVALUATION_PROTOCOL,
         )
         self.assertFalse(summary["evaluation_protocol"]["cross_model"])
+        self.assertFalse(summary["evaluation_protocol"]["repeated_run"])
         self.assertEqual(
             summary["evaluation_protocol"]["implementation_sha256"],
             "b" * 64,

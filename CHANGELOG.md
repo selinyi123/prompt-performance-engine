@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Advanced to v26 by capping every single benchmark run at E2 and requiring at
+  least three configuration-compatible, uniquely identified complete runs for
+  E3 eligibility.
+- Added hash-verified repeated-run aggregation with per-case consensus,
+  exact-agreement stability, per-domain and per-replicate gates, a standalone
+  tamper-resistant validator, optimization-to-evaluation Prompt binding,
+  copied-run fingerprint rejection, CLI commands, JSON Schema, and
+  180-observation full-release tests.
 - Completed the first full real-provider run across all 12 domains and 60 cases:
   30 wins, 9 ties, 21 losses, and 15% net improvement from 240 model calls.
 - Advanced the evaluation protocol to v17 with source-language, scope,

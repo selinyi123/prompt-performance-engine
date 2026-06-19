@@ -30,6 +30,9 @@ from prompt_performance_engine.benchmark import (  # noqa: E402
     load_benchmark_definition,
     validate_benchmark,
 )
+from prompt_performance_engine.benchmark_replicates import (  # noqa: E402
+    validate_replicate_id,
+)
 from prompt_performance_engine.codex_evaluation import (  # noqa: E402
     CachedCodexBlindJudge,
     CachedCodexExecutor,
@@ -156,6 +159,7 @@ def build_run_configuration(
     model: str,
     reasoning_effort: str,
     candidate_count: int,
+    replicate_id: str | None = None,
 ) -> dict[str, Any]:
     optimizer_prompt_sha256 = hashlib.sha256(
         (ROOT / "prompts" / "optimizer.md").read_bytes()
@@ -179,6 +183,7 @@ def build_run_configuration(
         "max_tokens": None,
         "generation_seed": None,
         "candidate_count": candidate_count,
+        "replicate_id": replicate_id,
         "blind_seed": 20260613,
     }
 
@@ -261,11 +266,12 @@ def build_summary(
         deterministic_checks_passed=True,
         matched_cases=cases,
         comparative_improvement_passed=aggregate_gate,
-        repeated_or_cross_model=True,
+        repeated_or_cross_model=False,
     )
     summary: dict[str, Any] = {
         "schema_version": "1.0.0",
         "suite_id": suite_id,
+        "replicate_id": run_configuration.get("replicate_id"),
         "benchmark_definition_sha256": run_configuration.get(
             "benchmark_definition_sha256"
         ),
@@ -295,6 +301,7 @@ def build_summary(
             "generation_seed": "not configurable by Codex CLI",
             "blind_judges": 2,
             "judge_independence": "separate same-model calls and caches",
+            "repeated_run": False,
             "cross_model": False,
         },
         "usage": actual_usage_from_tree(output_directory),
@@ -347,10 +354,15 @@ def main() -> int:
         help="Independent optimization candidates; values above 1 are experimental.",
     )
     parser.add_argument(
+        "--replicate-id",
+        help="Unique 1-64 character identifier for repeated-run aggregation.",
+    )
+    parser.add_argument(
         "--domains",
         help="Comma-separated domain ids; default runs all domains.",
     )
     args = parser.parse_args()
+    validate_replicate_id(args.replicate_id, required=False)
 
     suite_id, jobs = load_benchmark_definition(args.benchmark)
     failures = validate_benchmark(suite_id, jobs)
@@ -383,6 +395,7 @@ def main() -> int:
             model=args.model,
             reasoning_effort=args.reasoning_effort,
             candidate_count=args.candidate_count,
+            replicate_id=args.replicate_id,
         ),
     )
 
@@ -465,7 +478,7 @@ def main() -> int:
                     seed=None,
                 ),
                 blind_seed=20260613,
-                repeated_or_cross_model=True,
+                repeated_or_cross_model=False,
             )
         except AdapterError as exc:
             write_run_failure(

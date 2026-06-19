@@ -155,6 +155,12 @@ candidate as the default, and records unsupported Codex CLI generation
   2W/0T/3L with zero hard, critical, or fatal regressions. The selector chose
   `concise_channel_fit`; three losses cited insufficient hierarchy, segment
   depth, or continuity. Diversity alone did not prove stable improvement.
+- v26 closes a claim-inflation defect: a single 60-case run is now capped at E2.
+  E3 requires at least three unique, configuration-compatible runs whose
+  manifests, summaries, optimization artifacts, Prompt bindings, per-domain
+  evaluations, case definitions, consensus, stability metrics, and release
+  gates all validate. Copied run fingerprints and rehashed derived-field
+  tampering fail closed.
 - The Docker execution backend now creates and policy-inspects the container
   before attaching execution. This closes a timeout race where the container
   could disappear before evidence inspection. All three live Docker isolation,
@@ -163,7 +169,8 @@ candidate as the default, and records unsupported Codex CLI generation
 ## Implemented After v0.3, Gate Pending
 
 - Matched original-versus-optimized evaluation with hard-check precedence,
-  randomized A/B mapping, two-judge aggregation, and E2/E3 ceilings.
+  randomized A/B mapping, two-judge aggregation, a single-run E2 ceiling,
+  and a validated three-replicate E3 gate.
 - Twelve domain profiles with observable checks and domain hard-check plugins.
 - OpenAI Responses API and external-command adapters.
 - Blind human-review packets, position probes, adjudication, agreement metrics,
@@ -194,8 +201,9 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- All 12 domains require a fresh v25 pinned-provider run against
-  `cross-domain-60-v2`.
+- All 12 domains require at least three fresh, configuration-compatible v26
+  pinned-provider runs against `cross-domain-60-v2`, followed by validated
+  replicate aggregation.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.
 - Three independent qualified reviewers must complete at least 24 cases and

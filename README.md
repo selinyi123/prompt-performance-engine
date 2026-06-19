@@ -121,6 +121,19 @@ python -m prompt_performance_engine verify-manifest manifest.json --root .
 ```powershell
 python -m prompt_performance_engine validate-benchmark benchmark\catalog-60.json
 python scripts\run_codex_benchmark.py --domains software_engineering
+
+# E3 requires three complete, configuration-compatible single runs.
+python scripts\run_codex_benchmark.py --replicate-id run-a `
+  --output-directory artifacts\benchmark-run-a
+python scripts\run_codex_benchmark.py --replicate-id run-b `
+  --output-directory artifacts\benchmark-run-b
+python scripts\run_codex_benchmark.py --replicate-id run-c `
+  --output-directory artifacts\benchmark-run-c
+python -m prompt_performance_engine aggregate-benchmark-replicates `
+  artifacts\benchmark-run-a artifacts\benchmark-run-b artifacts\benchmark-run-c `
+  --output evidence\benchmark-replicates.json
+python -m prompt_performance_engine validate-benchmark-replicates `
+  evidence\benchmark-replicates.json
 python -m prompt_performance_engine evaluate-recorded ...
 python -m prompt_performance_engine create-review-packet ...
 python -m prompt_performance_engine aggregate-human-review ...
@@ -135,7 +148,7 @@ verified facts, audience, channel, CTA, and evidence boundary. Definitions
 alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Protocol v25 binds the
+call caches, per-domain artifacts, and a summary. Protocol v26 binds the
 benchmark definition, optimizer Prompt hash, domain-profile hash, package
 version, the complete Python implementation and runner hash, Python runtime,
 model, and supported runtime controls. Quota failures are written as hashed,
@@ -150,7 +163,12 @@ v23 adds artifact-bound multi-candidate selection evidence across CLI and API.
 v24 binds the selector to the same domain guardrails, required behaviors,
 forbidden changes, recovered contract, and architecture used for generation.
 v25 assigns distinct, recorded strategies to multi-candidate generation rather
-than relying on repeated sampling of the same optimization request.
+than relying on repeated sampling of the same optimization request. v26 caps
+every single run at E2 and adds hash-verified aggregation for at least three
+uniquely identified, configuration-compatible runs. It validates every manifest,
+summary, optimization artifact, Prompt-to-evaluation binding, domain evaluation,
+case identity, consensus outcome, stability metric, and derived release gate.
+Copied optimization/evaluation fingerprints cannot count as separate runs.
 Its default is one optimization candidate.
 `--candidate-count 2..5` is experimental and does not by itself raise the
 evidence level.
@@ -257,7 +275,8 @@ Protocol v19 replaces all five abstract marketing tasks with concrete
 evidence-bearing briefs and upgrades the release benchmark to
 `cross-domain-60-v2`. Readiness now rejects the old v1 summary as stale.
 Accordingly, R03 is partial again and readiness is 4 of 10 mandatory gates
-until v25 completes a fresh 60/60 run. The first concrete v19 marketing run
+until fresh v26 repeated-run evidence passes the release gates. The first
+concrete v19 marketing run
 produced 1W/0T/4L with no optimized hard failures; v20 also produced 1W/0T/4L
 and exposed a hard-check false positive on an explicitly rejected scarcity
 claim. The completed v21 real-provider run produced 1W/1T/3L; its apparent hard

@@ -123,7 +123,13 @@ The optimization kernel needs targeted improvement driven by failed cases:
   channel-fit, adversarial, and balanced strategies instead of repeated
   identical sampling;
 - prohibit candidate selection from using the same unblinded signal that later
-  judges the result.
+  judges the result;
+- cap every component benchmark run at E2, regardless of case count;
+- require at least three unique, configuration-compatible complete runs before
+  E3, with hash-linked manifests, summaries, evaluations, per-case consensus,
+  and exact-agreement stability metrics;
+- recompute all repeatability-report gates so rehashing edited derived fields
+  cannot manufacture an E3 claim.
 
 Files:
 
@@ -336,7 +342,9 @@ Status: locally complete; independent reproduction pending.
 - completed a differentiated-candidate diagnostic at 2W/0T/3L; treat the
   regression as evidence that repeated matched runs and selection diagnostics
   are required before more optimizer tuning;
-- run all 12 domains and 60 cases;
+- run all 12 domains and 60 cases in at least three v26 replicates;
+- aggregate and validate all 180 or more matched observations before any E3
+  claim;
 - analyze every loss and fatal flaw;
 - add regression tests before optimizer changes;
 - rerun under a new immutable configuration.

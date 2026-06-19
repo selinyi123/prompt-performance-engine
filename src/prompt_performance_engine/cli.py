@@ -23,6 +23,10 @@ from .adapters import (
 )
 from .audit import audit_prompt
 from .benchmark import load_benchmark_definition, validate_benchmark
+from .benchmark_replicates import (
+    aggregate_benchmark_replicates,
+    validate_replicate_report,
+)
 from .compiler import compile_request
 from .contracts import OptimizationRequest
 from .evaluation import (
@@ -221,6 +225,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_evaluation_parser = subparsers.add_parser("validate-evaluation")
     validate_evaluation_parser.add_argument("evaluation", type=Path)
+
+    replicate_aggregate_parser = subparsers.add_parser(
+        "aggregate-benchmark-replicates"
+    )
+    replicate_aggregate_parser.add_argument(
+        "run_directories", nargs="+", type=Path
+    )
+    replicate_aggregate_parser.add_argument(
+        "-o", "--output", type=Path, required=True
+    )
+
+    replicate_validate_parser = subparsers.add_parser(
+        "validate-benchmark-replicates"
+    )
+    replicate_validate_parser.add_argument("report", type=Path)
 
     code_evidence_parser = subparsers.add_parser("build-code-evidence")
     code_evidence_parser.add_argument("evaluation", type=Path)
@@ -451,6 +470,24 @@ def _run_service(
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "aggregate-benchmark-replicates":
+        report = aggregate_benchmark_replicates(args.run_directories)
+        _write_json(args.output, report)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "validate-benchmark-replicates":
+        report = json.loads(args.report.read_text(encoding="utf-8"))
+        failures = validate_replicate_report(report)
+        print(
+            json.dumps(
+                {"valid": not failures, "failures": failures},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1 if failures else 0
+
     if args.command == "compile":
         request = OptimizationRequest(
             source_prompt=args.prompt_file.read_text(encoding="utf-8"),
