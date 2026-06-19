@@ -333,6 +333,9 @@ Status: locally complete; independent reproduction pending.
 - completed a five-case three-candidate marketing diagnostic at 2W/0T/3L;
 - completed a full-contract selector diagnostic at 2W/1T/2L with no hard,
   critical, or fatal regressions;
+- completed a differentiated-candidate diagnostic at 2W/0T/3L; treat the
+  regression as evidence that repeated matched runs and selection diagnostics
+  are required before more optimizer tuning;
 - run all 12 domains and 60 cases;
 - analyze every loss and fatal flaw;
 - add regression tests before optimizer changes;

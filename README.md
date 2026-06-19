@@ -268,8 +268,12 @@ but still fails the domain gate.
 The v24 full-contract selector diagnostic improved again to 2W/1T/2L with zero
 hard, critical, or fatal regressions, but still lacked the required net win.
 v25 therefore diversifies candidates across fidelity, coverage, channel-fit,
-adversarial, and balanced strategies. The first image run has all 10 matched
-assets, but no qualified independent visual-review submissions.
+adversarial, and balanced strategies. Its first three-candidate marketing run
+produced 2W/0T/3L: the selector chose the concise-channel strategy, and the
+result lost on landing-page completeness, segmented-framework depth, and
+existing-customer continuity. Candidate diversity is implemented, but stable
+selection improvement is not yet proven. The first image run has all 10
+matched assets, but no qualified independent visual-review submissions.
 Independent expert review and three-machine reproduction are also missing.
 Local OS/container-sandbox evidence exists for the software cases, but has not
 yet been independently reproduced. Therefore the project does not claim stable

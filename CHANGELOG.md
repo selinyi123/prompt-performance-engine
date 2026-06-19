@@ -51,6 +51,9 @@
 - Advanced to v25 with recorded, distinct candidate strategies for fidelity,
   coverage, channel fit, adversarial review, and balanced synthesis; strategy
   context is preserved through generation, selection, and artifact evidence.
+- Recorded the first v25 differentiated-candidate marketing run at 2W/0T/3L.
+  It had no hard, critical, or fatal regressions, but the selected concise
+  strategy lost three cases on completeness or continuity; the gate failed.
 - Fixed forbidden-substring checks for rejected requests, warning contexts, and
   Chinese refusal language, plus case-insensitive required-text matching.
 - Extended restricted Python verification to include referenced safe literal

@@ -151,6 +151,10 @@ candidate as the default, and records unsupported Codex CLI generation
   adversarial red team, and balanced synthesis. Strategy and focus are bound
   into generation, selection, and artifact evidence; single-candidate behavior
   remains unchanged.
+- The first v25 differentiated three-candidate marketing run produced
+  2W/0T/3L with zero hard, critical, or fatal regressions. The selector chose
+  `concise_channel_fit`; three losses cited insufficient hierarchy, segment
+  depth, or continuity. Diversity alone did not prove stable improvement.
 - The Docker execution backend now creates and policy-inspects the container
   before attaching execution. This closes a timeout race where the container
   could disappear before evidence inspection. All three live Docker isolation,
