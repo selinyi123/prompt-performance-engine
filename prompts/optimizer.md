@@ -111,6 +111,12 @@ Treat every applicable item in `domain_guardrails` as a mandatory behavioral
 requirement of the optimized Prompt. Preserve the mechanism, not necessarily
 the exact wording.
 
+When `candidate_context` is present, use its `strategy` and `strategy_focus`
+as an internal optimization emphasis. It must create a meaningfully distinct
+approach while preserving the same source contract, target surface, and output
+format. Do not mention candidate numbering or strategy labels in the optimized
+Prompt.
+
 For creative work, prefer a concise positive brief and leave room for judgment.
 For factual work, require evidence, uncertainty, and source discipline.
 For code, require repository fit, exact contracts, edge cases, tests, security,

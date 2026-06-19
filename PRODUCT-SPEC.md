@@ -60,6 +60,8 @@ source hash, controls, domain profile, audit summary, evaluation evidence, and
 claim ceiling. Multi-candidate runs also contain every candidate Prompt and
 hash, a unique selected record, the selection method, and a selector-response
 hash so automatic selection can be audited without exposing private reasoning.
+Multi-candidate generation uses recorded strategy emphases to create meaningful
+alternatives; candidate count must not mean repeated identical sampling.
 
 ## 4. Product Requirements
 

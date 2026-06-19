@@ -46,6 +46,11 @@
 - Advanced to v24 by binding the selector to the complete compiled contract,
   including domain guardrails, required behaviors, forbidden changes, target
   surface, recovered behavior, and architecture; verbosity is not rewarded.
+- Recorded the v24 full-contract selector marketing run at 2W/1T/2L with zero
+  optimized hard failures, critical regressions, or fatal flaws.
+- Advanced to v25 with recorded, distinct candidate strategies for fidelity,
+  coverage, channel fit, adversarial review, and balanced synthesis; strategy
+  context is preserved through generation, selection, and artifact evidence.
 - Fixed forbidden-substring checks for rejected requests, warning contexts, and
   Chinese refusal language, plus case-insensitive required-text matching.
 - Extended restricted Python verification to include referenced safe literal

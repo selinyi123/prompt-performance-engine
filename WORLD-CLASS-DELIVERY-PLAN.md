@@ -119,6 +119,9 @@ The optimization kernel needs targeted improvement driven by failed cases:
 - bind candidate selection to the same domain guardrails, required behaviors,
   forbidden changes, recovered contract, target surface, and architecture used
   to generate candidates;
+- diversify multi-candidate generation through recorded fidelity, coverage,
+  channel-fit, adversarial, and balanced strategies instead of repeated
+  identical sampling;
 - prohibit candidate selection from using the same unblinded signal that later
   judges the result.
 
@@ -328,6 +331,8 @@ Status: locally complete; independent reproduction pending.
 - completed CLI/API exposure and artifact-bound evidence for 1-5 candidate
   generation and automatic selection;
 - completed a five-case three-candidate marketing diagnostic at 2W/0T/3L;
+- completed a full-contract selector diagnostic at 2W/1T/2L with no hard,
+  critical, or fatal regressions;
 - run all 12 domains and 60 cases;
 - analyze every loss and fatal flaw;
 - add regression tests before optimizer changes;

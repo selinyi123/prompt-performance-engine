@@ -143,6 +143,14 @@ candidate as the default, and records unsupported Codex CLI generation
   required behaviors, forbidden changes, recovered behavior, target surface,
   and architecture. Selection explicitly rejects guardrail violations and
   does not reward verbosity.
+- The v24 three-candidate marketing run produced 2W/1T/2L with zero optimized
+  hard failures, critical regressions, or fatal flaws. Full-contract selection
+  improved the prior result but did not create a net win.
+- v25 replaces repeated identical sampling with five recorded candidate
+  strategies: fidelity guardrail, coverage matrix, concise channel fit,
+  adversarial red team, and balanced synthesis. Strategy and focus are bound
+  into generation, selection, and artifact evidence; single-candidate behavior
+  remains unchanged.
 - The Docker execution backend now creates and policy-inspects the container
   before attaching execution. This closes a timeout race where the container
   could disappear before evidence inspection. All three live Docker isolation,
@@ -182,7 +190,7 @@ after their evidence gates, not merely after implementation.
 
 ## Blocking External Evidence
 
-- All 12 domains require a fresh v24 pinned-provider run against
+- All 12 domains require a fresh v25 pinned-provider run against
   `cross-domain-60-v2`.
 - Wins must exceed losses in every domain, aggregate improvement must reach
   10%, and critical regressions must be zero.

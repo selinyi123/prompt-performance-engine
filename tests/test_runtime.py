@@ -113,6 +113,10 @@ class RuntimeTests(unittest.TestCase):
             "Candidate two.",
             "Candidate three.",
         ))
+        self.assertEqual(
+            result.candidate_strategies,
+            ("fidelity_guardrail", "coverage_matrix", "concise_channel_fit"),
+        )
         self.assertEqual(result.selected_index, 2)
         selection = result.artifact["runtime"]["selection"]
         self.assertEqual(selection["method"], "model_selector")
@@ -157,6 +161,18 @@ class RuntimeTests(unittest.TestCase):
             ["Do not change the offer."],
         )
         self.assertIn("Do not reward verbosity", adapter.calls[-1]["system_prompt"])
+        generation_contexts = [
+            json.loads(call["user_payload"])["candidate_context"]
+            for call in adapter.calls[:-1]
+        ]
+        self.assertEqual(
+            [item["strategy"] for item in generation_contexts],
+            ["fidelity_guardrail", "coverage_matrix"],
+        )
+        self.assertEqual(
+            [item["strategy"] for item in selector_payload["candidates"]],
+            ["fidelity_guardrail", "coverage_matrix"],
+        )
 
 
 if __name__ == "__main__":

@@ -206,6 +206,8 @@ def validate_artifact(data: Any) -> list[Violation]:
                             continue
                         prompt = candidate.get("prompt")
                         index = candidate.get("index")
+                        strategy = candidate.get("strategy")
+                        strategy_focus = candidate.get("strategy_focus")
                         if (
                             not isinstance(index, int)
                             or isinstance(index, bool)
@@ -213,6 +215,18 @@ def validate_artifact(data: Any) -> list[Violation]:
                         ):
                             violations.append(
                                 Violation("A09", "runtime candidate index mismatch.")
+                            )
+                        if (strategy is None) != (strategy_focus is None) or (
+                            strategy is not None
+                            and (
+                                not isinstance(strategy, str)
+                                or not strategy.strip()
+                                or not isinstance(strategy_focus, str)
+                                or not strategy_focus.strip()
+                            )
+                        ):
+                            violations.append(
+                                Violation("A09", "runtime candidate strategy is invalid.")
                             )
                         if (
                             not isinstance(prompt, str)

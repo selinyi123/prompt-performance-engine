@@ -135,7 +135,7 @@ verified facts, audience, channel, CTA, and evidence boundary. Definitions
 alone are not performance evidence.
 
 The Codex runner creates a configuration-locked `run-manifest.json`, durable
-call caches, per-domain artifacts, and a summary. Protocol v24 binds the
+call caches, per-domain artifacts, and a summary. Protocol v25 binds the
 benchmark definition, optimizer Prompt hash, domain-profile hash, package
 version, the complete Python implementation and runner hash, Python runtime,
 model, and supported runtime controls. Quota failures are written as hashed,
@@ -149,6 +149,8 @@ and deceptive-request handling for marketing, plus rejection-aware hard checks.
 v23 adds artifact-bound multi-candidate selection evidence across CLI and API.
 v24 binds the selector to the same domain guardrails, required behaviors,
 forbidden changes, recovered contract, and architecture used for generation.
+v25 assigns distinct, recorded strategies to multi-candidate generation rather
+than relying on repeated sampling of the same optimization request.
 Its default is one optimization candidate.
 `--candidate-count 2..5` is experimental and does not by itself raise the
 evidence level.
@@ -255,15 +257,19 @@ Protocol v19 replaces all five abstract marketing tasks with concrete
 evidence-bearing briefs and upgrades the release benchmark to
 `cross-domain-60-v2`. Readiness now rejects the old v1 summary as stale.
 Accordingly, R03 is partial again and readiness is 4 of 10 mandatory gates
-until v24 completes a fresh 60/60 run. The first concrete v19 marketing run
+until v25 completes a fresh 60/60 run. The first concrete v19 marketing run
 produced 1W/0T/4L with no optimized hard failures; v20 also produced 1W/0T/4L
 and exposed a hard-check false positive on an explicitly rejected scarcity
 claim. The completed v21 real-provider run produced 1W/1T/3L; its apparent hard
 regression was another rejection-heading measurement false positive. After
 that fix, the v22 three-candidate diagnostic produced 2W/0T/3L with zero hard,
 critical, or fatal regressions. This improves on the single-candidate diagnostic
-but still fails the domain gate. The first image run has
-all 10 matched assets, but no qualified independent visual-review submissions.
+but still fails the domain gate.
+The v24 full-contract selector diagnostic improved again to 2W/1T/2L with zero
+hard, critical, or fatal regressions, but still lacked the required net win.
+v25 therefore diversifies candidates across fidelity, coverage, channel-fit,
+adversarial, and balanced strategies. The first image run has all 10 matched
+assets, but no qualified independent visual-review submissions.
 Independent expert review and three-machine reproduction are also missing.
 Local OS/container-sandbox evidence exists for the software cases, but has not
 yet been independently reproduced. Therefore the project does not claim stable

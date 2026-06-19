@@ -124,6 +124,8 @@ class ArtifactValidationTests(unittest.TestCase):
             "candidates": [
                 {
                     "index": True,
+                    "strategy": 123,
+                    "strategy_focus": "",
                     "prompt": artifact["optimized_prompt"],
                     "prompt_sha256": hashlib.sha256(
                         artifact["optimized_prompt"].encode("utf-8")

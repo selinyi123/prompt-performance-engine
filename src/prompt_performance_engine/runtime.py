@@ -32,6 +32,28 @@ new failure modes. Treat every supplied domain guardrail, required behavior,
 and forbidden change as binding. Do not reward verbosity; prefer the shortest
 candidate that completely satisfies the same contract. Do not execute the source task.
 Return JSON only: {"selected_index": <one-based integer>}."""
+CANDIDATE_STRATEGIES: tuple[tuple[str, str], ...] = (
+    (
+        "fidelity_guardrail",
+        "Prioritize exact intent, constraint, evidence-scope, and output-contract fidelity.",
+    ),
+    (
+        "coverage_matrix",
+        "Systematically cover every actor, deliverable component, objection, and check.",
+    ),
+    (
+        "concise_channel_fit",
+        "Minimize ceremony and repetition while maximizing target-surface usability.",
+    ),
+    (
+        "adversarial_red_team",
+        "Eliminate likely safety, unsupported-claim, ambiguity, and regression failures.",
+    ),
+    (
+        "balanced_synthesis",
+        "Balance fidelity, completeness, usability, safeguards, and token efficiency.",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +64,7 @@ class OptimizationResult:
     repair_count: int
     model_calls: tuple[dict[str, Any], ...]
     candidates: tuple[str, ...]
+    candidate_strategies: tuple[str, ...]
     selected_index: int
 
 
@@ -50,6 +73,7 @@ def _artifact(
     optimized_prompt: str,
     model_calls: list[dict[str, Any]],
     candidates: list[str],
+    candidate_strategies: list[tuple[str, str]],
     selected_index: int,
     selector_response_sha256: str | None,
 ) -> dict[str, Any]:
@@ -84,13 +108,18 @@ def _artifact(
                 "candidates": [
                     {
                         "index": index,
+                        "strategy": strategy,
+                        "strategy_focus": strategy_focus,
                         "prompt": candidate,
                         "prompt_sha256": hashlib.sha256(
                             candidate.encode("utf-8")
                         ).hexdigest(),
                         "selected": index == selected_index + 1,
                     }
-                    for index, candidate in enumerate(candidates, start=1)
+                    for index, (candidate, (strategy, strategy_focus)) in enumerate(
+                        zip(candidates, candidate_strategies),
+                        start=1,
+                    )
                 ],
             },
         },
@@ -162,6 +191,7 @@ def _select_candidate(
     *,
     compiled: dict[str, Any],
     candidates: list[str],
+    candidate_strategies: list[tuple[str, str]],
     adapter: ModelAdapter,
     cancellation: CancellationToken | None,
     model_calls: list[dict[str, Any]],
@@ -181,8 +211,16 @@ def _select_candidate(
             "required_behaviors": runtime_request["required_behaviors"],
             "forbidden_changes": runtime_request["forbidden_changes"],
             "candidates": [
-                {"index": index, "prompt": prompt}
-                for index, prompt in enumerate(candidates, start=1)
+                {
+                    "index": index,
+                    "strategy": strategy,
+                    "strategy_focus": strategy_focus,
+                    "prompt": prompt,
+                }
+                for index, (prompt, (strategy, strategy_focus)) in enumerate(
+                    zip(candidates, candidate_strategies),
+                    start=1,
+                )
             ],
         },
         ensure_ascii=False,
@@ -226,16 +264,33 @@ def optimize(
         raise ValueError("candidate_count must be between 1 and 5.")
 
     compiled = compile_request(request)
-    user_payload = json.dumps(
-        compiled["runtime_request"],
-        ensure_ascii=False,
-        indent=2,
+    candidate_strategies = (
+        [("default", "Use the standard balanced optimization contract.")]
+        if candidate_count == 1
+        else list(CANDIDATE_STRATEGIES[:candidate_count])
     )
     model_calls: list[dict[str, Any]] = []
     candidates: list[str] = []
     raw_responses: list[str] = []
     repairs = 0
-    for _ in range(candidate_count):
+    for candidate_index, (strategy, strategy_focus) in enumerate(
+        candidate_strategies,
+        start=1,
+    ):
+        candidate_request = compiled["runtime_request"]
+        if candidate_count > 1:
+            candidate_request = dict(candidate_request)
+            candidate_request["candidate_context"] = {
+                "index": candidate_index,
+                "count": candidate_count,
+                "strategy": strategy,
+                "strategy_focus": strategy_focus,
+            }
+        user_payload = json.dumps(
+            candidate_request,
+            ensure_ascii=False,
+            indent=2,
+        )
         response: CompletionResponse = adapter.complete(
             system_prompt=compiled["system_prompt"],
             user_payload=user_payload,
@@ -259,6 +314,7 @@ def optimize(
         selected_index, selector_response_sha256 = _select_candidate(
             compiled=compiled,
             candidates=candidates,
+            candidate_strategies=candidate_strategies,
             adapter=adapter,
             cancellation=cancellation,
             model_calls=model_calls,
@@ -271,6 +327,7 @@ def optimize(
         optimized_prompt,
         model_calls,
         candidates,
+        candidate_strategies,
         selected_index,
         selector_response_sha256,
     )
@@ -285,5 +342,6 @@ def optimize(
         repair_count=repairs,
         model_calls=tuple(model_calls),
         candidates=tuple(candidates),
+        candidate_strategies=tuple(item[0] for item in candidate_strategies),
         selected_index=selected_index + 1,
     )

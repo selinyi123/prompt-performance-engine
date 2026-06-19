@@ -101,6 +101,8 @@
                 "required": ["index", "prompt", "prompt_sha256", "selected"],
                 "properties": {
                   "index": {"type": "integer", "minimum": 1, "maximum": 5},
+                  "strategy": {"type": "string", "minLength": 1},
+                  "strategy_focus": {"type": "string", "minLength": 1},
                   "prompt": {"type": "string", "minLength": 1},
                   "prompt_sha256": {
                     "type": "string",
