@@ -1,23 +1,11 @@
-"""Parse complete optimized Prompts from model responses."""
+"""Parse complete optimized Prompts from the canonical JSON transport."""
 
 from __future__ import annotations
 
-import re
+from .contracts import parse_strict_json_object
 
 
-TAGGED_PROMPT_RE = re.compile(
-    r"<optimized_prompt>\s*(.*?)\s*</optimized_prompt>",
-    flags=re.IGNORECASE | re.DOTALL,
-)
-FENCED_BLOCK_RE = re.compile(
-    r"```(?:text|markdown|md|prompt)?\s*\r?\n(.*?)```",
-    flags=re.IGNORECASE | re.DOTALL,
-)
-HEADED_PROMPT_RE = re.compile(
-    r"##\s*(?:优化后的\s*Prompt|Optimized\s+Prompt)\s*\r?\n+"
-    r"```(?:text|markdown|md|prompt)?\s*\r?\n(.*?)```",
-    flags=re.IGNORECASE | re.DOTALL,
-)
+SUPPORTED_OUTPUT_FORMATS = {"prompt_only", "standard", "evaluation_package"}
 
 
 class PromptParseError(ValueError):
@@ -27,28 +15,21 @@ class PromptParseError(ValueError):
 def extract_optimized_prompt(response: str, output_format: str) -> str:
     if not isinstance(response, str) or not response.strip():
         raise PromptParseError("Model response is empty.")
+    if output_format not in SUPPORTED_OUTPUT_FORMATS:
+        raise PromptParseError(f"Unsupported output_format: {output_format!r}.")
 
-    tagged = TAGGED_PROMPT_RE.search(response)
-    if tagged:
-        prompt = tagged.group(1).strip()
-        if prompt:
-            return prompt
-
-    headed = HEADED_PROMPT_RE.search(response)
-    if headed:
-        prompt = headed.group(1).strip()
-        if prompt:
-            return prompt
-
-    blocks = [block.strip() for block in FENCED_BLOCK_RE.findall(response) if block.strip()]
-    if output_format == "prompt_only" and len(blocks) == 1:
-        return blocks[0]
-    if blocks:
-        return max(blocks, key=len)
-
-    if output_format == "prompt_only":
-        plain = response.strip()
-        if plain and not plain.startswith(("#", "- ", "{")):
-            return plain
-
-    raise PromptParseError("No complete optimized Prompt could be extracted.")
+    try:
+        transport = parse_strict_json_object(
+            response,
+            label="model optimization response",
+        )
+    except (TypeError, ValueError) as exc:
+        raise PromptParseError(str(exc)) from exc
+    if set(transport) != {"optimized_prompt"}:
+        raise PromptParseError(
+            "Model response must contain exactly the optimized_prompt JSON field."
+        )
+    prompt = transport["optimized_prompt"]
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise PromptParseError("optimized_prompt JSON field must be a non-empty string.")
+    return prompt

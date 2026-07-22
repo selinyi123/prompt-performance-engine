@@ -10,6 +10,7 @@ import os
 import platform
 import secrets
 import sys
+import tempfile
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -31,24 +32,58 @@ from prompt_performance_engine.benchmark import (  # noqa: E402
     validate_benchmark,
 )
 from prompt_performance_engine.benchmark_replicates import (  # noqa: E402
+    actual_usage_from_payloads,
     validate_replicate_id,
+)
+from prompt_performance_engine.case_checks import (  # noqa: E402
+    DOCKER_REQUIRED_CASE_IDS,
 )
 from prompt_performance_engine.codex_evaluation import (  # noqa: E402
     CachedCodexBlindJudge,
     CachedCodexExecutor,
     EVALUATION_PROTOCOL,
 )
-from prompt_performance_engine.contracts import OptimizationRequest  # noqa: E402
-from prompt_performance_engine.contracts import PACKAGE_VERSION  # noqa: E402
+from prompt_performance_engine.contracts import (  # noqa: E402
+    ARTIFACT_SCHEMA_VERSION,
+    OptimizationRequest,
+    PACKAGE_VERSION,
+    load_strict_json_object,
+)
 from prompt_performance_engine.evaluation import (  # noqa: E402
     ExecutionConfig,
     evaluate_suite,
     validate_evaluation,
 )
 from prompt_performance_engine.evidence import infer_evidence  # noqa: E402
-from prompt_performance_engine.hashing import hash_payload  # noqa: E402
+from prompt_performance_engine.hashing import hash_payload, sha256_json  # noqa: E402
 from prompt_performance_engine.runtime import optimize  # noqa: E402
+from prompt_performance_engine.software_sandbox import DockerSandbox  # noqa: E402
 from prompt_performance_engine.validation import validate_artifact  # noqa: E402
+
+
+def create_isolated_model_workspace() -> tuple[tempfile.TemporaryDirectory, Path]:
+    """Create an empty working directory outside the benchmark checkout."""
+
+    owner = tempfile.TemporaryDirectory(prefix="ppe-benchmark-model-")
+    path = Path(owner.name).resolve()
+    try:
+        path.relative_to(ROOT.resolve())
+    except ValueError:
+        return owner, path
+    owner.cleanup()
+    raise RuntimeError("Model workspace must be outside the benchmark checkout.")
+
+
+def default_output_directory() -> Path:
+    """Bind the default artifact directory to the active protocol version."""
+
+    protocol_version = EVALUATION_PROTOCOL.rsplit("-", 1)[-1]
+    if (
+        not protocol_version.startswith("v")
+        or not protocol_version[1:].isdigit()
+    ):
+        raise RuntimeError("Evaluation protocol must end in a numeric vN version.")
+    return ROOT / "artifacts" / f"codex-benchmark-{protocol_version}"
 
 
 def evaluation_implementation_paths() -> tuple[Path, ...]:
@@ -94,17 +129,29 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def contained_output_path(output_directory: Path, *parts: str) -> Path:
+    root = output_directory.resolve()
+    candidate = root.joinpath(*parts).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(
+            f"Benchmark output path escapes the output directory: {candidate}"
+        ) from exc
+    return candidate
+
+
 def load_valid_artifact(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
         return None
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = load_strict_json_object(path, label="optimization artifact")
     return data if not validate_artifact(data) else None
 
 
 def load_valid_evaluation(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
         return None
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = load_strict_json_object(path, label="evaluation artifact")
     return data if not validate_evaluation(data) else None
 
 
@@ -118,7 +165,7 @@ def write_run_failure(
 ) -> dict[str, Any]:
     category = "quota" if isinstance(error, AdapterQuotaError) else "adapter"
     report: dict[str, Any] = {
-        "schema_version": "1.0.0",
+        "schema_version": ARTIFACT_SCHEMA_VERSION,
         "domain": domain,
         "phase": phase,
         "category": category,
@@ -127,7 +174,10 @@ def write_run_failure(
         "run_manifest_sha256": run_manifest_sha256,
     }
     report["failure_sha256"] = hash_payload(report, "failure_sha256")
-    write_json(output_directory / "failures" / f"{domain}.json", report)
+    write_json(
+        contained_output_path(output_directory, "failures", f"{domain}.json"),
+        report,
+    )
     return report
 
 
@@ -136,13 +186,13 @@ def ensure_run_manifest(
     configuration: dict[str, Any],
 ) -> dict[str, Any]:
     manifest = {
-        "schema_version": "1.0.0",
+        "schema_version": ARTIFACT_SCHEMA_VERSION,
         "configuration": configuration,
     }
     manifest["manifest_sha256"] = hash_payload(manifest, "manifest_sha256")
     path = output_directory / "run-manifest.json"
     if path.is_file():
-        existing = json.loads(path.read_text(encoding="utf-8"))
+        existing = load_strict_json_object(path, label="run manifest")
         if existing != manifest:
             raise ValueError(
                 "Output directory belongs to a different benchmark configuration."
@@ -150,6 +200,29 @@ def ensure_run_manifest(
     else:
         write_json(path, manifest)
     return manifest
+
+
+def ensure_benchmark_snapshot(
+    output_directory: Path,
+    *,
+    suite_id: str,
+    jobs: tuple[Any, ...],
+) -> dict[str, Any]:
+    """Persist the fully resolved benchmark source used by this run."""
+    snapshot = {
+        "suite_id": suite_id,
+        "jobs": [asdict(job) for job in jobs],
+    }
+    path = output_directory / "benchmark-definition.json"
+    if path.is_file():
+        existing = load_strict_json_object(path, label="benchmark definition")
+        if existing != snapshot:
+            raise ValueError(
+                "Output directory belongs to a different benchmark definition."
+            )
+    else:
+        write_json(path, snapshot)
+    return snapshot
 
 
 def build_run_configuration(
@@ -160,6 +233,7 @@ def build_run_configuration(
     reasoning_effort: str,
     candidate_count: int,
     replicate_id: str | None = None,
+    sandbox_image: str | None = None,
 ) -> dict[str, Any]:
     optimizer_prompt_sha256 = hashlib.sha256(
         (ROOT / "prompts" / "optimizer.md").read_bytes()
@@ -184,45 +258,29 @@ def build_run_configuration(
         "generation_seed": None,
         "candidate_count": candidate_count,
         "replicate_id": replicate_id,
+        "software_sandbox_image": sandbox_image,
         "blind_seed": 20260613,
     }
 
 
 def actual_usage_from_tree(root: Path) -> dict[str, int]:
-    totals: dict[str, int] = {"actual_model_calls": 0}
-    paths = list(root.glob("*/optimization.json"))
-    paths.extend(root.glob("*/cache/**/*.json"))
-    for path in paths:
+    artifacts: list[dict[str, Any]] = []
+    evaluations: list[dict[str, Any]] = []
+    for path in root.glob("*/optimization.json"):
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            data = load_strict_json_object(path, label="optimization artifact")
+        except (OSError, ValueError):
             continue
-        if not isinstance(data, dict):
+        if isinstance(data, dict):
+            artifacts.append(data)
+    for path in root.glob("*/evaluation.json"):
+        try:
+            data = load_strict_json_object(path, label="evaluation artifact")
+        except (OSError, ValueError):
             continue
-        candidates: list[Any]
-        if path.name == "optimization.json":
-            runtime = data.get("runtime", {})
-            if not isinstance(runtime, dict):
-                continue
-            totals["actual_model_calls"] += int(runtime.get("total_calls", 0))
-            candidates = [runtime.get("total_usage")]
-        else:
-            totals["actual_model_calls"] += 1
-            candidates = [
-                data.get("metadata", {}).get("usage")
-                if isinstance(data.get("metadata"), dict)
-                else None,
-                data.get("model_metadata", {}).get("usage")
-                if isinstance(data.get("model_metadata"), dict)
-                else None,
-            ]
-        for usage in candidates:
-            if not isinstance(usage, dict):
-                continue
-            for key, value in usage.items():
-                if isinstance(value, int) and not isinstance(value, bool):
-                    totals[key] = totals.get(key, 0) + value
-    return totals
+        if isinstance(data, dict):
+            evaluations.append(data)
+    return actual_usage_from_payloads(artifacts, evaluations)
 
 
 def build_summary(
@@ -234,7 +292,7 @@ def build_summary(
     run_configuration: dict[str, Any] = {}
     run_manifest_sha256: str | None = None
     if manifest_path.is_file():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = load_strict_json_object(manifest_path, label="run manifest")
         candidate_manifest_sha256 = manifest.get("manifest_sha256")
         if isinstance(candidate_manifest_sha256, str):
             run_manifest_sha256 = candidate_manifest_sha256
@@ -269,7 +327,7 @@ def build_summary(
         repeated_or_cross_model=False,
     )
     summary: dict[str, Any] = {
-        "schema_version": "1.0.0",
+        "schema_version": ARTIFACT_SCHEMA_VERSION,
         "suite_id": suite_id,
         "replicate_id": run_configuration.get("replicate_id"),
         "benchmark_definition_sha256": run_configuration.get(
@@ -327,7 +385,7 @@ def build_summary(
     return summary
 
 
-def main() -> int:
+def _main(model_workspace: Path) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--benchmark",
@@ -337,7 +395,7 @@ def main() -> int:
     parser.add_argument(
         "--output-directory",
         type=Path,
-        default=ROOT / "artifacts" / "codex-benchmark-v15",
+        default=default_output_directory(),
     )
     parser.add_argument("--model", default="gpt-5.5")
     parser.add_argument(
@@ -361,6 +419,13 @@ def main() -> int:
         "--domains",
         help="Comma-separated domain ids; default runs all domains.",
     )
+    parser.add_argument(
+        "--sandbox-image",
+        help=(
+            "Digest-pinned Docker image required when selected domains contain "
+            "executable software cases."
+        ),
+    )
     args = parser.parse_args()
     validate_replicate_id(args.replicate_id, required=False)
 
@@ -371,22 +436,36 @@ def main() -> int:
     grouped = group_jobs_by_domain(jobs)
     selected = (
         [item.strip() for item in args.domains.split(",") if item.strip()]
-        if args.domains
+        if args.domains is not None
         else sorted(grouped)
     )
+    if args.domains is not None and not selected:
+        parser.error("--domains must contain at least one domain id")
     unknown = set(selected) - set(grouped)
     if unknown:
         raise ValueError(f"Unknown benchmark domains: {sorted(unknown)}")
+    requires_sandbox = any(
+        case.case_id in DOCKER_REQUIRED_CASE_IDS
+        for domain in selected
+        for case in grouped[domain].cases
+    )
+    if requires_sandbox and not args.sandbox_image:
+        parser.error(
+            "--sandbox-image is required when selected domains include "
+            "executable software cases"
+        )
+    software_sandbox = (
+        DockerSandbox(args.sandbox_image) if requires_sandbox else None
+    )
 
     output_directory = args.output_directory.resolve()
     output_directory.mkdir(parents=True, exist_ok=True)
-    benchmark_definition_sha256 = hash_payload(
-        {
-            "suite_id": suite_id,
-            "jobs": [asdict(job) for job in jobs],
-        },
-        "_not_present",
+    benchmark_snapshot = ensure_benchmark_snapshot(
+        output_directory,
+        suite_id=suite_id,
+        jobs=jobs,
     )
+    benchmark_definition_sha256 = sha256_json(benchmark_snapshot)
     run_manifest = ensure_run_manifest(
         output_directory,
         build_run_configuration(
@@ -396,13 +475,13 @@ def main() -> int:
             reasoning_effort=args.reasoning_effort,
             candidate_count=args.candidate_count,
             replicate_id=args.replicate_id,
+            sandbox_image=args.sandbox_image,
         ),
     )
-
     def adapter_factory() -> CodexExecAdapter:
         return CodexExecAdapter(
             model=args.model,
-            working_directory=ROOT,
+            working_directory=model_workspace,
             reasoning_effort=args.reasoning_effort,
             timeout_seconds=args.timeout,
         )
@@ -415,7 +494,7 @@ def main() -> int:
 
     for domain in selected:
         job = grouped[domain]
-        domain_directory = output_directory / domain
+        domain_directory = contained_output_path(output_directory, domain)
         optimization_path = domain_directory / "optimization.json"
         evaluation_path = domain_directory / "evaluation.json"
         existing_evaluation = load_valid_evaluation(evaluation_path)
@@ -433,9 +512,9 @@ def main() -> int:
                         source_prompt=job.source_prompt,
                         domain=domain,
                         output_format="standard",
+                        candidate_count=args.candidate_count,
                     ),
                     adapter_factory(),
-                    candidate_count=args.candidate_count,
                 )
             except AdapterError as exc:
                 write_run_failure(
@@ -479,6 +558,7 @@ def main() -> int:
                 ),
                 blind_seed=20260613,
                 repeated_or_cross_model=False,
+                software_sandbox=software_sandbox,
             )
         except AdapterError as exc:
             write_run_failure(
@@ -507,7 +587,28 @@ def main() -> int:
     summary = build_summary(suite_id, results, output_directory)
     write_json(output_directory / "summary.json", summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
-    return 0 if all(results[domain]["gate_passed"] for domain in selected) else 1
+    exit_code = 0 if all(
+        results[domain]["gate_passed"] for domain in selected
+    ) else 1
+    return exit_code
+
+
+def main() -> int:
+    model_workspace_owner, model_workspace = create_isolated_model_workspace()
+    try:
+        result = _main(model_workspace)
+    except BaseException as primary_error:
+        try:
+            model_workspace_owner.cleanup()
+        except BaseException as cleanup_error:
+            primary_error.add_note(
+                "Model workspace cleanup also failed: "
+                f"{type(cleanup_error).__name__}."
+            )
+        raise
+    else:
+        model_workspace_owner.cleanup()
+        return result
 
 
 def cli_main() -> int:
@@ -527,6 +628,20 @@ def cli_main() -> int:
             file=sys.stderr,
         )
         return 75
+    except AdapterError as exc:
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "category": "adapter",
+                    "retryable": False,
+                    "message": str(exc),
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 1
 
 
 if __name__ == "__main__":

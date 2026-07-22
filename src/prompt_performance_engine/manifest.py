@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 from typing import Any, Iterable
 
-from .contracts import PACKAGE_VERSION
+from .contracts import ARTIFACT_SCHEMA_VERSION, PACKAGE_VERSION
 from .hashing import hash_payload
 
 
@@ -30,7 +30,7 @@ def build_manifest(paths: Iterable[Path], *, root: Path) -> dict[str, Any]:
         )
 
     manifest: dict[str, Any] = {
-        "schema_version": "1.0.0",
+        "schema_version": ARTIFACT_SCHEMA_VERSION,
         "package_version": PACKAGE_VERSION,
         "entries": entries,
     }

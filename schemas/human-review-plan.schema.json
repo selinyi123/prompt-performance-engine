@@ -1,11 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/prompt-performance/1.0.0/human-review-plan.schema.json",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/human-review-plan.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "evaluations", "reviews"],
+  "required": ["schema_version", "replicate_report", "run_directories", "evaluations", "reviews"],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
+    "replicate_report": {"type": "string", "minLength": 1},
+    "run_directories": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
     "evaluations": {
       "type": "array",
       "minItems": 1,

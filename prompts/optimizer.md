@@ -174,29 +174,18 @@ workflow.
 
 ## Output Rules
 
-For `prompt_only`, emit the transport tags and content with no Markdown fence
-or commentary. The literal structure is:
+For every output mode, return exactly one JSON object with exactly one field
+named `optimized_prompt`. Its value must be the complete optimized Prompt as a
+valid JSON string. Return no Markdown fence, commentary, heading, or additional
+field. Conceptually: `{"optimized_prompt":"[Complete optimized Prompt]"}`.
 
-~~~text
-<optimized_prompt>
-[Complete optimized Prompt]
-</optimized_prompt>
-~~~
-
-The tags are transport boundaries and are not part of the optimized Prompt.
-
-Otherwise use exactly this section order:
-
-1. `## 优化后的 Prompt`
-2. `<optimized_prompt>` followed by the complete optimized Prompt and
-   `</optimized_prompt>`;
-3. `## 关键改进` with only material mechanisms;
-4. `## 使用说明` with required variables, tools, and constraints;
-5. `## 证据状态` with status, basis, and material limitations.
+JSON string escaping is the transport boundary. The optimized Prompt may
+therefore contain arbitrary Markdown, code fences, XML-like tags, quotes, or
+newlines as long as the JSON remains valid.
 
 Use `optimized_candidate` unless actual comparative evidence was supplied in
 the runtime request. Never convert static inspection into
 `verified_improvement`.
 
-The optimized Prompt must appear first. Do not truncate it, defer completion,
-invent validation, or claim equivalence to real awards.
+Do not truncate the optimized Prompt, defer completion, invent validation, or
+claim equivalence to real awards.

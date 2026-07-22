@@ -19,7 +19,11 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 
 from .adapters import ModelAdapter
-from .contracts import OptimizationRequest
+from .contracts import (
+    OptimizationRequest,
+    load_strict_json_object,
+    parse_strict_json_object,
+)
 from .hashing import canonical_json_bytes, sha256_json
 from .runtime import optimize
 
@@ -217,7 +221,7 @@ class ArtifactStore:
     def read(self, relative: str) -> dict[str, Any]:
         path = (self.root / relative).resolve()
         path.relative_to(self.root)
-        return json.loads(path.read_text(encoding="utf-8"))
+        return load_strict_json_object(path, label="stored optimization artifact")
 
     def health(self) -> bool:
         return self.root.is_dir() and os.access(self.root, os.W_OK)
@@ -276,29 +280,10 @@ class OptimizationService:
 
     @staticmethod
     def _request_from_data(data: dict[str, Any]) -> OptimizationRequest:
-        return OptimizationRequest(
-            source_prompt=data["source_prompt"],
-            mode=data.get("mode", "maximum_quality"),
-            output_format=data.get("output_format", "standard"),
-            domain=data.get("domain"),
-            audience=data.get("audience"),
-            target_model=data.get("target_model"),
-            target_surface=data.get("target_surface", "api"),
-            required_behaviors=tuple(data.get("required_behaviors", [])),
-            forbidden_changes=tuple(data.get("forbidden_changes", [])),
-            schema_version=data.get("schema_version", "1.0.0"),
+        return OptimizationRequest.from_dict(
+            data,
+            target_surface_default="api",
         )
-
-    @staticmethod
-    def _candidate_count_from_data(data: dict[str, Any]) -> int:
-        candidate_count = data.get("candidate_count", 1)
-        if (
-            not isinstance(candidate_count, int)
-            or isinstance(candidate_count, bool)
-            or not 1 <= candidate_count <= 5
-        ):
-            raise ValueError("candidate_count must be an integer between 1 and 5.")
-        return candidate_count
 
     def submit(
         self,
@@ -307,12 +292,9 @@ class OptimizationService:
         idempotency_key: str,
     ) -> dict[str, Any]:
         request = self._request_from_data(request_data)
-        request.validate()
-        candidate_count = self._candidate_count_from_data(request_data)
         if not idempotency_key.strip() or len(idempotency_key) > 200:
             raise ValueError("Idempotency-Key must contain 1 to 200 characters.")
         normalized_request = request.to_dict()
-        normalized_request["candidate_count"] = candidate_count
         job, created = self.store.create_or_get(normalized_request, idempotency_key)
         if created:
             self.metrics.increment("submitted")
@@ -365,11 +347,9 @@ class OptimizationService:
                     continue
                 request_data = self.store.request_for(job_id)
                 request = self._request_from_data(request_data)
-                candidate_count = self._candidate_count_from_data(request_data)
                 result = optimize(
                     request,
                     self.adapter_factory(),
-                    candidate_count=candidate_count,
                 )
                 relative = self.artifacts.write(job_id, result.artifact)
                 self.store.mark_succeeded(job_id, relative)
@@ -498,9 +478,10 @@ def make_handler(
                 )
                 return
             try:
-                data = json.loads(self.rfile.read(length).decode("utf-8"))
-                if not isinstance(data, dict):
-                    raise ValueError("request root must be an object")
+                data = parse_strict_json_object(
+                    self.rfile.read(length).decode("utf-8"),
+                    label="optimization request",
+                )
                 job = service.submit(
                     data,
                     idempotency_key=self.headers.get("Idempotency-Key", ""),

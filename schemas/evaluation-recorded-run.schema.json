@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/prompt-performance/1.0.0/evaluation-recorded-run.schema.json",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/evaluation-recorded-run.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,16 +12,16 @@
     "judges"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
-    "suite_id": {"type": "string", "minLength": 1},
-    "job_id": {"type": "string", "minLength": 1},
+    "schema_version": {"const": "2.0.0"},
+    "suite_id": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "job_id": {"type": "string", "minLength": 1, "pattern": "\\S"},
     "blind_seed": {"type": "integer"},
     "execution_config": {
       "type": "object",
       "additionalProperties": false,
       "required": ["model"],
       "properties": {
-        "model": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1, "pattern": "\\S"},
         "temperature": {"type": "number"},
         "max_tokens": {"type": "integer", "minimum": 1},
         "seed": {"type": ["integer", "null"]}
@@ -29,14 +29,15 @@
     },
     "outputs": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["case_id", "original", "optimized"],
         "properties": {
-          "case_id": {"type": "string"},
-          "original": {"type": "string"},
-          "optimized": {"type": "string"}
+          "case_id": {"type": "string", "minLength": 1},
+          "original": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "optimized": {"type": "string", "minLength": 1, "pattern": "\\S"}
         }
       }
     },
@@ -48,16 +49,21 @@
         "additionalProperties": false,
         "required": ["name", "decisions"],
         "properties": {
-          "name": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1, "pattern": "\\S"},
           "decisions": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["winner", "reason"],
+              "required": [
+                "winner",
+                "reason",
+                "fatal_flaw_a",
+                "fatal_flaw_b"
+              ],
               "properties": {
                 "winner": {"enum": ["A", "B", "tie"]},
-                "reason": {"type": "string", "minLength": 1},
+                "reason": {"type": "string", "minLength": 1, "pattern": "\\S"},
                 "fatal_flaw_a": {"type": "boolean"},
                 "fatal_flaw_b": {"type": "boolean"}
               }

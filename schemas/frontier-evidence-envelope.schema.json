@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prompt-performance-engine:schema:frontier:evidence-envelope:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "campaign_sha256",
+    "policy_sha256",
+    "commitment_sha256",
+    "report_id",
+    "generated_at",
+    "outcome",
+    "failures",
+    "payload",
+    "payload_sha256",
+    "semantic_authority_id",
+    "semantic_receipt_sha256",
+    "evidence_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {
+      "enum": [
+        "judgment_manifest",
+        "human_gold",
+        "software_r05",
+        "visual_r06",
+        "statistics",
+        "safety",
+        "robustness",
+        "efficiency",
+        "independence",
+        "external_reproduction",
+        "defect_register",
+        "stable_readiness_report"
+      ]
+    },
+    "campaign_sha256": {"$ref": "#/$defs/sha256"},
+    "policy_sha256": {"$ref": "#/$defs/sha256"},
+    "commitment_sha256": {"$ref": "#/$defs/sha256"},
+    "report_id": {"$ref": "#/$defs/identifier"},
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+    },
+    "outcome": {"enum": ["passed", "failed", "not_evaluable"]},
+    "failures": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "payload": {"$ref": "#/$defs/payload"},
+    "payload_sha256": {"$ref": "#/$defs/sha256"},
+    "semantic_authority_id": {"$ref": "#/$defs/identifier"},
+    "semantic_receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "evidence_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"outcome": {"const": "passed"}}, "required": ["outcome"]},
+      "then": {"properties": {"failures": {"maxItems": 0}}},
+      "else": {"properties": {"failures": {"minItems": 1}}}
+    }
+  ],
+  "$defs": {
+    "identifier": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\s]+$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_ids",
+        "evaluated_case_count",
+        "passed_case_count",
+        "failed_case_count",
+        "metric_ids",
+        "record_count",
+        "records_sha256",
+        "source_artifact_sha256s"
+      ],
+      "properties": {
+        "subject_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "evaluated_case_count": {"$ref": "#/$defs/count"},
+        "passed_case_count": {"$ref": "#/$defs/count"},
+        "failed_case_count": {"$ref": "#/$defs/count"},
+        "metric_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "record_count": {"$ref": "#/$defs/count"},
+        "records_sha256": {"$ref": "#/$defs/sha256"},
+        "source_artifact_sha256s": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/sha256"}}
+      }
+    }
+  }
+}

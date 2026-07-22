@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/code-execution-plan.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "evaluation",
+    "sandbox_image"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "report_id": {"type": "string", "minLength": 1},
+    "evaluation": {"type": "string", "minLength": 1},
+    "sandbox_image": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "@sha256:[0-9a-f]{64}$"
+    }
+  }
+}

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/prompt-performance/1.0.0/readiness-manifest.schema.json",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/readiness-manifest.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "benchmark_target", "artifacts", "manifest_sha256"],
+  "required": ["schema_version", "benchmark_target", "authority_sources", "artifacts", "manifest_sha256"],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
     "benchmark_target": {
       "type": "object",
       "additionalProperties": false,
@@ -21,6 +21,35 @@
         }
       }
     },
+    "authority_sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmark_run_directories",
+        "human_review_plan",
+        "code_execution_plan",
+        "visual_review_plan"
+      ],
+      "properties": {
+        "benchmark_run_directories": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "human_review_plan": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "code_execution_plan": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "visual_review_plan": {
+          "type": ["string", "null"],
+          "minLength": 1
+        }
+      }
+    },
     "artifacts": {
       "type": "array",
       "items": {
@@ -30,7 +59,7 @@
         "properties": {
           "kind": {
             "enum": [
-              "benchmark_summary",
+              "benchmark_replicate",
               "human_review",
               "operational_verification",
               "code_execution",

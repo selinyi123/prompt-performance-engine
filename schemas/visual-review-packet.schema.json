@@ -1,31 +1,51 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/prompt-performance/1.0.0/visual-review-packet.schema.json",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/visual-review-packet.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "reviewer_id",
     "generation_manifest_sha256",
+    "protocol",
     "instructions",
     "items",
     "packet_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
     "reviewer_id": {"type": "string", "minLength": 1},
     "generation_manifest_sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "blinding_key_sha256"],
+      "properties": {
+        "name": {"const": "balanced_hmac_sha256_v2"},
+        "blinding_key_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
     "instructions": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
         "blind",
         "winner_values",
         "score_range",
         "minimum_reason_characters"
-      ]
+      ],
+      "properties": {
+        "blind": {"const": true},
+        "winner_values": {"const": ["A", "B", "tie"]},
+        "score_range": {"const": [1, 5]},
+        "minimum_reason_characters": {"const": 20}
+      }
     },
     "items": {
       "type": "array",
@@ -45,7 +65,8 @@
           "input_text": {"type": "string", "minLength": 1},
           "rubric": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 3,
+            "uniqueItems": true,
             "items": {"type": "string", "minLength": 1}
           },
           "image_a": {"$ref": "#/$defs/blindImage"},

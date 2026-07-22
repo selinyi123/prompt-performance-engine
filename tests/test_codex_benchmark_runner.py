@@ -1,14 +1,15 @@
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stderr
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from prompt_performance_engine.adapters import AdapterQuotaError
+from prompt_performance_engine.adapters import AdapterError, AdapterQuotaError
 from prompt_performance_engine.hashing import hash_payload
 
 
@@ -23,6 +24,101 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class CodexBenchmarkRunnerTests(unittest.TestCase):
+    def test_software_domain_requires_sandbox_before_model_calls(self):
+        stderr = StringIO()
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "run_codex_benchmark.py",
+                "--domains",
+                "software_engineering",
+            ],
+        ), patch.object(RUNNER, "DockerSandbox") as sandbox, redirect_stderr(
+            stderr
+        ):
+            with self.assertRaises(SystemExit) as context:
+                RUNNER.main()
+        self.assertEqual(context.exception.code, 2)
+        self.assertIn("--sandbox-image is required", stderr.getvalue())
+        sandbox.assert_not_called()
+
+    def test_empty_domain_selection_is_a_usage_error(self):
+        stderr = StringIO()
+        with patch.object(
+            sys,
+            "argv",
+            ["run_codex_benchmark.py", "--domains", ",,"],
+        ), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as context:
+                RUNNER.main()
+        self.assertEqual(context.exception.code, 2)
+        self.assertIn("must contain at least one domain id", stderr.getvalue())
+
+    def test_output_path_rejects_domain_traversal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "artifacts"
+            with self.assertRaisesRegex(ValueError, "escapes the output directory"):
+                RUNNER.write_run_failure(
+                    root,
+                    domain="../../escaped",
+                    phase="optimization",
+                    error=AdapterError("failed"),
+                    run_manifest_sha256="a" * 64,
+                )
+
+    def test_model_workspace_is_empty_and_outside_the_checkout(self):
+        owner, workspace = RUNNER.create_isolated_model_workspace()
+        try:
+            self.assertTrue(workspace.is_dir())
+            self.assertEqual(list(workspace.iterdir()), [])
+            with self.assertRaises(ValueError):
+                workspace.relative_to(ROOT.resolve())
+        finally:
+            owner.cleanup()
+
+    def test_main_cleans_model_workspace_on_usage_error(self):
+        owner = Mock()
+        with patch.object(
+            RUNNER,
+            "create_isolated_model_workspace",
+            return_value=(owner, Path("unused-model-workspace")),
+        ), patch.object(
+            sys,
+            "argv",
+            ["run_codex_benchmark.py", "--domains", ",,"],
+        ), redirect_stderr(StringIO()):
+            with self.assertRaises(SystemExit):
+                RUNNER.main()
+
+        owner.cleanup.assert_called_once_with()
+
+    def test_cleanup_error_does_not_mask_quota_failure(self):
+        owner = Mock()
+        owner.cleanup.side_effect = PermissionError("workspace still locked")
+        stderr = StringIO()
+        with patch.object(
+            RUNNER,
+            "create_isolated_model_workspace",
+            return_value=(owner, Path("unused-model-workspace")),
+        ), patch.object(
+            RUNNER,
+            "_main",
+            side_effect=AdapterQuotaError("quota"),
+        ), redirect_stderr(stderr):
+            exit_code = RUNNER.cli_main()
+
+        payload = json.loads(stderr.getvalue())
+        self.assertEqual(exit_code, 75)
+        self.assertEqual(payload["category"], "quota")
+        owner.cleanup.assert_called_once_with()
+
+    def test_default_output_directory_tracks_protocol_version(self):
+        self.assertEqual(
+            RUNNER.default_output_directory(),
+            ROOT / "artifacts" / "codex-benchmark-v26",
+        )
+
     def test_atomic_json_writes_are_safe_under_concurrency(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -69,6 +165,7 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             RUNNER.EVALUATION_PROTOCOL,
         )
         self.assertEqual(configuration["replicate_id"], "replicate-a")
+        self.assertIsNone(configuration["software_sandbox_image"])
 
     def test_implementation_hash_binds_adapter_source(self):
         relative = {
@@ -116,7 +213,20 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
         self.assertEqual(payload["category"], "quota")
         self.assertTrue(payload["retryable"])
 
-    def test_actual_usage_does_not_count_embedded_evaluation_metadata(self):
+    def test_cli_adapter_failure_is_structured_without_traceback(self):
+        stderr = StringIO()
+        with patch.object(
+            RUNNER,
+            "main",
+            side_effect=AdapterError("adapter failed"),
+        ), redirect_stderr(stderr):
+            exit_code = RUNNER.cli_main()
+        payload = json.loads(stderr.getvalue())
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(payload["category"], "adapter")
+        self.assertFalse(payload["retryable"])
+
+    def test_actual_usage_counts_bound_metadata_and_ignores_orphan_cache_files(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             domain = root / "software_engineering"
@@ -126,11 +236,23 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
                 json.dumps(
                     {
                         "runtime": {
-                            "total_calls": 1,
-                            "total_usage": {
-                                "input_tokens": 100,
-                                "output_tokens": 10,
-                            },
+                            "model_calls": [
+                                {
+                                    "provider": "test",
+                                    "model": "model-a",
+                                    "response_id": None,
+                                    "usage": {
+                                        "input_tokens": 100,
+                                        "output_tokens": 10,
+                                    },
+                                    "attempts": 1,
+                                    "elapsed_ms": 1,
+                                    "status": "completed",
+                                    "purpose": "prompt_optimization",
+                                    "request_sha256": "a" * 64,
+                                    "response_sha256": "b" * 64,
+                                }
+                            ],
                         }
                     }
                 ),
@@ -156,10 +278,19 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
                             {
                                 "execution_metadata": {
                                     "original": {
+                                        "provider": "test",
+                                        "model": "model-a",
+                                        "response_id": None,
                                         "usage": {
                                             "input_tokens": 999,
                                             "output_tokens": 999,
-                                        }
+                                        },
+                                        "attempts": 1,
+                                        "elapsed_ms": 1,
+                                        "status": "completed",
+                                        "purpose": "benchmark_execution",
+                                        "request_sha256": "c" * 64,
+                                        "response_sha256": "d" * 64,
                                     }
                                 }
                             }
@@ -172,8 +303,8 @@ class CodexBenchmarkRunnerTests(unittest.TestCase):
             usage = RUNNER.actual_usage_from_tree(root)
 
             self.assertEqual(usage["actual_model_calls"], 2)
-            self.assertEqual(usage["input_tokens"], 300)
-            self.assertEqual(usage["output_tokens"], 30)
+            self.assertEqual(usage["input_tokens"], 1099)
+            self.assertEqual(usage["output_tokens"], 1009)
 
     def test_single_full_passing_summary_is_capped_at_e2(self):
         result = {

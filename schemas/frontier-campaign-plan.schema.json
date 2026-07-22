@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prompt-performance-engine:schema:frontier:campaign-plan:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "campaign_id", "dataset_id", "owner_id",
+    "dataset_custodian_id", "release_policy_path", "release_policy_sha256",
+    "source_commitment_path", "source_commitment_sha256",
+    "analysis_implementation_path", "analysis_implementation_sha256",
+    "analysis_sha256", "lifecycle", "candidate_artifacts", "models", "systems",
+    "judges", "budgets", "case_routes", "host_capabilities", "human_gold",
+    "pricing", "attestations", "storage", "campaign_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "campaign_id": {"$ref": "#/$defs/identifier"},
+    "dataset_id": {"$ref": "#/$defs/identifier"},
+    "owner_id": {"$ref": "#/$defs/identifier"},
+    "dataset_custodian_id": {"$ref": "#/$defs/identifier"},
+    "release_policy_path": {"$ref": "#/$defs/relativePath"},
+    "release_policy_sha256": {"$ref": "#/$defs/sha256"},
+    "source_commitment_path": {"$ref": "#/$defs/relativePath"},
+    "source_commitment_sha256": {"$ref": "#/$defs/sha256"},
+    "analysis_implementation_path": {"$ref": "#/$defs/relativePath"},
+    "analysis_implementation_sha256": {"$ref": "#/$defs/sha256"},
+    "analysis_sha256": {"$ref": "#/$defs/sha256"},
+    "lifecycle": {"$ref": "#/$defs/lifecycle"},
+    "candidate_artifacts": {"$ref": "#/$defs/candidateArtifacts"},
+    "models": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/model"}},
+    "systems": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/system"}},
+    "judges": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/judge"}},
+    "budgets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/budget"}},
+    "case_routes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/caseRoute"}},
+    "host_capabilities": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/hostCapability"}},
+    "human_gold": {"$ref": "#/$defs/humanGold"},
+    "pricing": {"$ref": "#/$defs/pricing"},
+    "attestations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["owner", "dataset_custodian"],
+      "properties": {
+        "owner": {"$ref": "#/$defs/attestation"},
+        "dataset_custodian": {"$ref": "#/$defs/attestation"}
+      }
+    },
+    "storage": {"$ref": "#/$defs/storage"},
+    "campaign_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "ociDigest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "relativePath": {
+      "type": "string", "minLength": 1, "maxLength": 256,
+      "pattern": "^(?!/)(?!.*:)(?!.*\\\\)(?!.*//)(?!\\.{1,2}(?:/|$))(?!.*[/]\\.{1,2}(?:/|$))\\S(?:.*\\S)?$"
+    },
+    "optionalSha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "optionalPath": {"oneOf": [{"$ref": "#/$defs/relativePath"}, {"type": "null"}]},
+    "optionalIdentifier": {"oneOf": [{"$ref": "#/$defs/identifier"}, {"type": "null"}]},
+    "nonNegativeInteger": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "positiveInteger": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "identifierArray": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "lifecycle": {
+      "type": "object", "additionalProperties": false,
+      "required": ["created_at", "evidence_expires_at", "responsible_operator_id", "expiry_policy_path", "expiry_policy_sha256"],
+      "properties": {
+        "created_at": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"},
+        "evidence_expires_at": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"},
+        "responsible_operator_id": {"$ref": "#/$defs/identifier"},
+        "expiry_policy_path": {"$ref": "#/$defs/relativePath"},
+        "expiry_policy_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "candidateArtifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["package_path", "package_sha256", "source_revision", "optimizer_prompt_path", "optimizer_prompt_sha256", "profile_path", "profile_sha256", "code_path", "code_sha256"],
+      "properties": {
+        "package_path": {"$ref": "#/$defs/relativePath"}, "package_sha256": {"$ref": "#/$defs/sha256"},
+        "source_revision": {"$ref": "#/$defs/identifier"},
+        "optimizer_prompt_path": {"$ref": "#/$defs/relativePath"}, "optimizer_prompt_sha256": {"$ref": "#/$defs/sha256"},
+        "profile_path": {"$ref": "#/$defs/relativePath"}, "profile_sha256": {"$ref": "#/$defs/sha256"},
+        "code_path": {"$ref": "#/$defs/relativePath"}, "code_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model_id", "provider", "family", "snapshot", "operator", "parameters_path", "parameters_sha256", "retry_policy_path", "retry_policy_sha256", "cache_policy_path", "cache_policy_sha256", "seeds_path", "seeds_sha256", "pricing_entry_path", "pricing_entry_sha256"],
+      "properties": {
+        "model_id": {"$ref": "#/$defs/identifier"}, "provider": {"$ref": "#/$defs/identifier"},
+        "family": {"$ref": "#/$defs/identifier"}, "snapshot": {"$ref": "#/$defs/identifier"},
+        "operator": {"$ref": "#/$defs/identifier"},
+        "parameters_path": {"$ref": "#/$defs/relativePath"}, "parameters_sha256": {"$ref": "#/$defs/sha256"},
+        "retry_policy_path": {"$ref": "#/$defs/relativePath"}, "retry_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "cache_policy_path": {"$ref": "#/$defs/relativePath"}, "cache_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "seeds_path": {"$ref": "#/$defs/relativePath"}, "seeds_sha256": {"$ref": "#/$defs/sha256"},
+        "pricing_entry_path": {"$ref": "#/$defs/relativePath"}, "pricing_entry_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_path", "source_sha256", "source_revision", "configuration_path", "configuration_sha256", "search_space_path", "search_space_sha256", "stopping_rule_path", "stopping_rule_sha256", "dependency_lock_path", "dependency_lock_sha256", "environment_path", "environment_sha256", "license_eligibility_path", "license_eligibility_sha256", "track", "input_visibility"],
+      "properties": {
+        "source_path": {"$ref": "#/$defs/relativePath"}, "source_sha256": {"$ref": "#/$defs/sha256"},
+        "source_revision": {"$ref": "#/$defs/identifier"},
+        "configuration_path": {"$ref": "#/$defs/relativePath"}, "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "search_space_path": {"$ref": "#/$defs/relativePath"}, "search_space_sha256": {"$ref": "#/$defs/sha256"},
+        "stopping_rule_path": {"$ref": "#/$defs/relativePath"}, "stopping_rule_sha256": {"$ref": "#/$defs/sha256"},
+        "dependency_lock_path": {"$ref": "#/$defs/relativePath"}, "dependency_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "environment_path": {"$ref": "#/$defs/relativePath"}, "environment_sha256": {"$ref": "#/$defs/sha256"},
+        "license_eligibility_path": {"$ref": "#/$defs/relativePath"}, "license_eligibility_sha256": {"$ref": "#/$defs/sha256"},
+        "track": {"$ref": "#/$defs/identifier"}, "input_visibility": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "system": {
+      "type": "object", "additionalProperties": false,
+      "required": ["system_id", "kind", "version", "implementation_sha256", "optimizer_model_id", "generation_model_id", "strong_baseline", "provenance"],
+      "properties": {
+        "system_id": {"$ref": "#/$defs/identifier"},
+        "kind": {"enum": ["candidate", "identity", "no_op", "expert", "random_search", "public_optimizer"]},
+        "version": {"$ref": "#/$defs/identifier"}, "implementation_sha256": {"$ref": "#/$defs/sha256"},
+        "optimizer_model_id": {"$ref": "#/$defs/optionalIdentifier"},
+        "generation_model_id": {"$ref": "#/$defs/identifier"}, "strong_baseline": {"type": "boolean"},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "judge": {
+      "type": "object", "additionalProperties": false,
+      "required": ["judge_id", "model_id", "prompt_path", "prompt_sha256", "rubric_path", "rubric_sha256", "parser_path", "parser_sha256", "calibration_path", "calibration_sha256", "receipt_authority_id", "positions"],
+      "properties": {
+        "judge_id": {"$ref": "#/$defs/identifier"}, "model_id": {"$ref": "#/$defs/identifier"},
+        "prompt_path": {"$ref": "#/$defs/relativePath"}, "prompt_sha256": {"$ref": "#/$defs/sha256"},
+        "rubric_path": {"$ref": "#/$defs/relativePath"}, "rubric_sha256": {"$ref": "#/$defs/sha256"},
+        "parser_path": {"$ref": "#/$defs/relativePath"}, "parser_sha256": {"$ref": "#/$defs/sha256"},
+        "calibration_path": {"$ref": "#/$defs/relativePath"}, "calibration_sha256": {"$ref": "#/$defs/sha256"},
+        "receipt_authority_id": {"$ref": "#/$defs/identifier"}, "positions": {"const": ["A", "B"]}
+      }
+    },
+    "resourceVector": {
+      "type": "object", "additionalProperties": false,
+      "required": ["calls", "input_tokens", "output_tokens", "money_microunits", "wall_clock_ms"],
+      "properties": {
+        "calls": {"$ref": "#/$defs/nonNegativeInteger"}, "input_tokens": {"$ref": "#/$defs/nonNegativeInteger"},
+        "output_tokens": {"$ref": "#/$defs/nonNegativeInteger"}, "money_microunits": {"$ref": "#/$defs/nonNegativeInteger"},
+        "wall_clock_ms": {"$ref": "#/$defs/nonNegativeInteger"}
+      }
+    },
+    "budgetComponent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["component_id", "role", "model_ids", "purposes", "unit_count", "attempts_per_unit", "max_input_tokens_per_attempt", "max_output_tokens_per_attempt", "max_money_microunits_per_attempt", "max_wall_clock_ms_per_attempt"],
+      "properties": {
+        "component_id": {"$ref": "#/$defs/identifier"},
+        "role": {"enum": ["optimizer", "generation", "selector", "repair", "judge", "image_generation", "tool", "environment"]},
+        "model_ids": {"$ref": "#/$defs/identifierArray"},
+        "purposes": {
+          "type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true,
+          "items": {"enum": ["optimization", "generation", "selection", "repair", "judging", "image_generation", "tool_execution", "environment_verification"]}
+        },
+        "unit_count": {"$ref": "#/$defs/positiveInteger"}, "attempts_per_unit": {"$ref": "#/$defs/positiveInteger"},
+        "max_input_tokens_per_attempt": {"$ref": "#/$defs/nonNegativeInteger"},
+        "max_output_tokens_per_attempt": {"$ref": "#/$defs/nonNegativeInteger"},
+        "max_money_microunits_per_attempt": {"$ref": "#/$defs/nonNegativeInteger"},
+        "max_wall_clock_ms_per_attempt": {"$ref": "#/$defs/nonNegativeInteger"}
+      }
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["system_id", "primary_dimension", "ceilings", "components", "worst_case"],
+      "properties": {
+        "system_id": {"$ref": "#/$defs/identifier"},
+        "primary_dimension": {"enum": ["calls", "input_tokens", "output_tokens", "money_microunits", "wall_clock_ms"]},
+        "ceilings": {"$ref": "#/$defs/resourceVector"},
+        "components": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/budgetComponent"}},
+        "worst_case": {"$ref": "#/$defs/resourceVector"}
+      }
+    },
+    "caseRoute": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "route", "authority_id"],
+      "properties": {
+        "case_id": {"$ref": "#/$defs/identifier"},
+        "route": {"enum": ["deterministic", "r05_docker", "r06_visual", "environment_state"]},
+        "authority_id": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "hostCapability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["route", "authority_id", "verifier_id", "configuration_path", "configuration_sha256", "runtime_image_digest", "sandbox_policy_path", "sandbox_policy_sha256", "visual_verifier_id", "visual_calibration_path", "visual_calibration_sha256"],
+      "properties": {
+        "route": {"enum": ["deterministic", "r05_docker", "r06_visual", "environment_state"]},
+        "authority_id": {"$ref": "#/$defs/identifier"}, "verifier_id": {"$ref": "#/$defs/identifier"},
+        "configuration_path": {"$ref": "#/$defs/relativePath"}, "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "runtime_image_digest": {"oneOf": [{"$ref": "#/$defs/ociDigest"}, {"type": "null"}]},
+        "sandbox_policy_path": {"$ref": "#/$defs/optionalPath"}, "sandbox_policy_sha256": {"$ref": "#/$defs/optionalSha256"},
+        "visual_verifier_id": {"$ref": "#/$defs/optionalIdentifier"},
+        "visual_calibration_path": {"$ref": "#/$defs/optionalPath"}, "visual_calibration_sha256": {"$ref": "#/$defs/optionalSha256"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"route": {"const": "r05_docker"}}, "required": ["route"]},
+          "then": {"properties": {
+            "runtime_image_digest": {"$ref": "#/$defs/ociDigest"},
+            "sandbox_policy_path": {"$ref": "#/$defs/relativePath"}, "sandbox_policy_sha256": {"$ref": "#/$defs/sha256"},
+            "visual_verifier_id": {"type": "null"}, "visual_calibration_path": {"type": "null"}, "visual_calibration_sha256": {"type": "null"}
+          }}
+        },
+        {
+          "if": {"properties": {"route": {"const": "r06_visual"}}, "required": ["route"]},
+          "then": {"properties": {
+            "runtime_image_digest": {"type": "null"}, "sandbox_policy_path": {"type": "null"}, "sandbox_policy_sha256": {"type": "null"},
+            "visual_verifier_id": {"$ref": "#/$defs/identifier"},
+            "visual_calibration_path": {"$ref": "#/$defs/relativePath"}, "visual_calibration_sha256": {"$ref": "#/$defs/sha256"}
+          }}
+        },
+        {
+          "if": {"properties": {"route": {"enum": ["deterministic", "environment_state"]}}, "required": ["route"]},
+          "then": {"properties": {
+            "runtime_image_digest": {"type": "null"}, "sandbox_policy_path": {"type": "null"}, "sandbox_policy_sha256": {"type": "null"},
+            "visual_verifier_id": {"type": "null"}, "visual_calibration_path": {"type": "null"}, "visual_calibration_sha256": {"type": "null"}
+          }}
+        }
+      ]
+    },
+    "humanGold": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expert_reviewer_ids", "senior_adjudicator_ids", "gold_set_path", "gold_set_sha256", "review_protocol_path", "review_protocol_sha256", "expert_eligibility_path", "expert_eligibility_sha256", "independence_attestation_path", "independence_attestation_sha256", "calibration_path", "calibration_sha256", "receipt_authority_id", "verifier_id"],
+      "properties": {
+        "expert_reviewer_ids": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "senior_adjudicator_ids": {"$ref": "#/$defs/identifierArray"},
+        "gold_set_path": {"$ref": "#/$defs/relativePath"}, "gold_set_sha256": {"$ref": "#/$defs/sha256"},
+        "review_protocol_path": {"$ref": "#/$defs/relativePath"}, "review_protocol_sha256": {"$ref": "#/$defs/sha256"},
+        "expert_eligibility_path": {"$ref": "#/$defs/relativePath"}, "expert_eligibility_sha256": {"$ref": "#/$defs/sha256"},
+        "independence_attestation_path": {"$ref": "#/$defs/relativePath"}, "independence_attestation_sha256": {"$ref": "#/$defs/sha256"},
+        "calibration_path": {"$ref": "#/$defs/relativePath"}, "calibration_sha256": {"$ref": "#/$defs/sha256"},
+        "receipt_authority_id": {"$ref": "#/$defs/identifier"}, "verifier_id": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "pricing": {
+      "type": "object", "additionalProperties": false,
+      "required": ["currency", "money_unit", "microunits_per_currency_unit", "price_snapshot_path", "price_snapshot_sha256"],
+      "properties": {
+        "currency": {"const": "USD"}, "money_unit": {"const": "money_microunits"},
+        "microunits_per_currency_unit": {"const": 1000000},
+        "price_snapshot_path": {"$ref": "#/$defs/relativePath"}, "price_snapshot_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "attestation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["subject_id", "authority_id", "attestation_id", "signature_path", "signature_sha256"],
+      "properties": {
+        "subject_id": {"$ref": "#/$defs/identifier"}, "authority_id": {"$ref": "#/$defs/identifier"},
+        "attestation_id": {"$ref": "#/$defs/identifier"},
+        "signature_path": {"$ref": "#/$defs/relativePath"}, "signature_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "storage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["available_bytes", "worst_case_bytes", "storage_root_path", "authority_id", "verifier_id"],
+      "properties": {
+        "available_bytes": {"$ref": "#/$defs/nonNegativeInteger"}, "worst_case_bytes": {"$ref": "#/$defs/nonNegativeInteger"},
+        "storage_root_path": {"$ref": "#/$defs/relativePath"},
+        "authority_id": {"$ref": "#/$defs/identifier"}, "verifier_id": {"$ref": "#/$defs/identifier"}
+      }
+    }
+  }
+}

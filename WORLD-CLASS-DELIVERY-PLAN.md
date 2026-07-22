@@ -19,6 +19,10 @@ Two statuses must remain separate:
 - `daily-use status`: limited beta for supervised local use;
 - `stable-release status`: incomplete until all ten readiness requirements pass.
 
+Performance is a third independent axis. `QUALITY-GATE-SPEC.md` defines the
+additional sealed-data, strong-baseline, uncertainty, robustness, safety, and
+quality-cost-latency evidence required before any scoped frontier claim.
+
 ## 2. Binding Definition of Done
 
 The release is complete only when the machine-generated readiness report marks
@@ -26,13 +30,19 @@ R01 through R10 as `passed` with no evidence errors:
 
 1. release validators and behavior tests pass;
 2. CLI, API, service, package installation, and documentation are verified;
-3. one real-provider run covers at least 60 cases across all 12 domains;
+3. at least three unique, configuration-compatible, receipt-verified
+   real-provider runs each cover at least 60 cases across all 12 domains and
+   reproduce the v26 aggregate from their bound source directories;
 4. every domain passes, net improvement is at least 10%, and critical and fatal
    regressions are zero;
-5. all eligible software cases receive sandboxed executable verification;
-6. all image cases generate actual images and receive qualified visual review;
+5. all eligible software cases receive sandboxed executable verification and
+   the complete R05 report is rebuilt from a bound `code-execution-plan` with a
+   matching live `DockerSandbox`;
+6. all image cases generate actual images, receive qualified visual review and
+   unique external receipts, and the complete R06 report is rebuilt from a
+   bound `visual-review-plan`;
 7. at least three qualified independent reviewers complete blind stratified
-   review with adjudication;
+   review with direct consensus; any coordinator adjudication remains diagnostic;
 8. installation and replay pass on three independent machines and operators;
 9. no open P0 or P1 defect remains;
 10. all public quality claims are bound to current immutable evidence.
@@ -48,10 +58,11 @@ Implemented and locally tested:
 - deterministic static audit and E0/E1 evidence boundaries;
 - matched A/B execution, blind dual judging, and hard-check precedence;
 - OpenAI, external-command, and authenticated Codex adapters;
-- blind human-review packets, bias probes, adjudication, and E4 logic;
+- blind human-review packets, bias probes, diagnostic adjudication, and E4 logic;
 - persistent local HTTP service and replayable artifacts;
 - wheel build and clean-environment installation checks;
-- authoritative case-owned machine verification for all five software cases;
+- case-owned machine-verification implementation for all five software cases;
+- strict R05/R06 source-plan replay and readiness authority injection points;
 - a passing E2 software-domain run under protocol v14.
 
 Not yet proven:
@@ -60,7 +71,10 @@ Not yet proven:
 - wins greater than losses in every domain;
 - zero fatal flaws across the release benchmark;
 - independent reproduction of the local OS/container sandbox evidence;
-- qualified independent review of the completed matched image generation;
+- live R05 report reproduction from the code-execution plan (four live Docker
+  tests may be skipped when no immutable integration image/daemon is supplied);
+- qualified, externally receipt-verified review of the completed matched image
+  generation and exact R06 visual-review-plan replay;
 - completed independent expert review;
 - three-machine independent reproduction;
 - a fully artifact-bound public-claim audit.
@@ -127,9 +141,14 @@ The optimization kernel needs targeted improvement driven by failed cases:
 - cap every component benchmark run at E2, regardless of case count;
 - require at least three unique, configuration-compatible complete runs before
   E3, with hash-linked manifests, summaries, evaluations, per-case consensus,
-  and exact-agreement stability metrics;
+  exact-agreement stability metrics, and unique externally verified call
+  receipts bound to every request, response, and evaluation context;
 - recompute all repeatability-report gates so rehashing edited derived fields
-  cannot manufacture an E3 claim.
+  cannot manufacture an E3 claim;
+- require authority validators to reload all readiness authority sources:
+  benchmark run directories, human-review plan, code-execution plan, and
+  visual-review plan. Detached E3/E4/R05/R06 reports must be reproduced exactly
+  with the matching receipt verifiers and live Docker sandbox.
 
 Files:
 
@@ -183,15 +202,21 @@ The current implementation covers all five cases with four restricted Python
 harnesses in a fixed Docker sandbox and one formal migration contract. It
 rejects imports, filesystem APIs, subprocesses, dynamic code, and dunder access
 before execution. Docker policy inspection and active probes verify the
-required OS boundary.
+required OS boundary. Stable R05 additionally requires a strict
+`code-execution-plan`, an explicit live `DockerSandbox` whose immutable image
+matches the plan, and exact report reconstruction after rerunning isolation,
+timeout, memory, and case-owned checks. A detached report or offline self-hash
+cannot substitute for that replay.
 
-Planned files:
+Implemented files:
 
 - `src/prompt_performance_engine/software_execution.py`
-- `software_cases/*.json`
-- `software_cases/tests/*`
-- `schemas/software-execution-report.schema.json`
+- `src/prompt_performance_engine/software_sandbox.py`
+- `src/prompt_performance_engine/software_evidence.py`
+- `schemas/code-execution-plan.schema.json`
 - `tests/test_software_execution.py`
+- `tests/test_software_sandbox.py`
+- `tests/test_software_evidence.py`
 
 ## 9. Image Generation and Visual Review
 
@@ -204,16 +229,24 @@ The image pipeline must:
 - score brief adherence, composition, legibility, artifact rate, and production
   usability;
 - use at least three qualified visual reviewers for release evidence;
+- generate a fresh 256-bit secret for each `balanced_hmac_sha256_v2` packet/key
+  pair, expose only its commitment in the public protocol, and retain the
+  secret, seed, source mapping, and optimized labels in the private key;
+- require unique generation and reviewer-submission receipts from host-supplied
+  `ImageGenerationReceiptVerifier` and
+  `VisualReviewerSubmissionVerifier` implementations;
+- reload the strict `visual-review-plan`, replay every blind mapping, and
+  reproduce the complete R06 report exactly;
 - retain rejected and safety-blocked generations;
 - keep aesthetic preference separate from objective brief violations.
 
-Planned files:
+Implemented files:
 
-- `src/prompt_performance_engine/image_evaluation.py`
-- `schemas/image-generation-run.schema.json`
-- `schemas/image-review-report.schema.json`
-- `scripts/run_image_benchmark.py`
-- `tests/test_image_evaluation.py`
+- `src/prompt_performance_engine/image_review.py`
+- `schemas/image-generation-manifest.schema.json`
+- `schemas/visual-review-plan.schema.json`
+- `schemas/visual-review-*.schema.json`
+- `tests/test_image_review.py`
 
 ## 10. Expert Human Review
 
@@ -227,24 +260,28 @@ Minimum release coverage:
 - at least 24 stratified cases;
 - required coverage for creative design, research synthesis, and business
   strategy;
-- position-bias probes and agreement metrics;
-- adjudication for all unresolved ties;
+- at least two reversed position-bias probes per reviewer, complete consistency,
+  non-degenerate base A/B selections, and agreement metrics;
+- direct reviewer consensus for all release-counted cases; coordinator-only
+  adjudication may be reported diagnostically but cannot qualify E4;
+- more direct human wins than losses;
+- unique trusted submission receipts binding reviewer identity, qualification,
+  independence, packet, and submission;
 - explicit limitations and reviewer qualification evidence.
 
-Files:
+Implemented files:
 
 - `src/prompt_performance_engine/human_review.py`
 - `schemas/human-review-*.schema.json`
-- `review_protocol/qualification.md`
-- `review_protocol/adjudication.md`
 - `tests/test_human_review.py`
 
 ## 11. Reproduction and Release Operations
 
 Independent reproduction is not the same as another local virtual environment.
 Each reproduction record must include privacy-preserving machine and operator
-identifiers, platform details, package checksum, commands, install result,
-replay result, and produced artifact hashes.
+identifiers encoded as lowercase 64-character SHA-256 digests, platform details,
+package checksum, commands, install result, replay result, and produced artifact
+hashes.
 
 Release operations must cover:
 
@@ -256,13 +293,15 @@ Release operations must cover:
 - three independent machines and operators;
 - signed release manifest and checksums.
 
-Planned files:
+Implemented contract and verification files:
 
-- `scripts/record_reproduction.py`
-- `schemas/reproduction-report.schema.json`
+- `src/prompt_performance_engine/frontier_replay.py`
+- `schemas/frontier-reproduction-plan.schema.json`
+- `schemas/frontier-replay-report.schema.json`
+- `schemas/frontier-reproduction-set.schema.json`
 - `.github/workflows/ci.yml`
-- `RELEASE-CHECKLIST.md`
-- `tests/test_reproduction.py`
+- `FRONTIER-EVIDENCE-CAMPAIGN.md`
+- `tests/test_frontier_replay.py`
 
 ## 12. Security, Privacy, and Claim Governance
 
@@ -292,11 +331,16 @@ The readiness system introduced in the current implementation batch adds:
 - `readiness-report.schema.json` for deterministic gate results;
 - `assess-readiness` and `validate-readiness` CLI commands;
 - path-containment, file-hash, and internal-hash validation;
+- four explicit readiness `authority_sources`: benchmark run directories,
+  human-review plan, code-execution plan, and visual-review plan;
+- source reconstruction for R05/R06 with an explicit live sandbox and the two
+  image-specific receipt authorities;
 - a fail-closed `--require-complete` release gate.
 
 Native benchmark and human-review artifacts retain their own schemas and hashes.
 Custom operational, code, image, expert, reproduction, defect, and claims
-reports use the shared readiness evidence envelope.
+reports use the shared exact readiness evidence envelope with kind-specific
+fact fields and scalar types.
 
 ## 14. Phased File-Level Implementation
 
@@ -312,23 +356,33 @@ Status: implemented in the current batch.
 
 ### Phase B: Complete Software Verification
 
-Status: locally complete; independent reproduction pending.
+Status: implementation and mocked policy-contract tests complete; live local and
+independent reproduction pending.
 
 - completed four restricted Python execution validators;
 - completed the formal rolling-migration validator;
 - completed authoritative hard-check integration;
 - completed evaluation-derived code-execution evidence;
-- completed resource-, filesystem-, and network-isolated Docker execution;
+- completed Docker-only execution and fail-closed policy implementation;
+- completed strict `code-execution-plan` replay and exact R05 report comparison;
+- pending a live run against a configured immutable image/daemon to produce R05
+  isolation evidence; four integration tests may skip without that environment
+  and their skip is not evidence;
 - pending independent-machine and independent-operator reproduction.
 
 ### Phase C: Actual Image Evaluation
 
 - completed matched generation records and strict PNG verification;
-- completed blinded image-review packets and submission validation;
+- completed `balanced_hmac_sha256_v2` blinded packets with a fresh per-packet
+  256-bit secret, public commitment, and private replay key;
+- completed strict visual-review-plan loading, submission validation, mapping
+  replay, and exact report comparison;
 - generated and validated all 10 assets for the first five-case matched run;
 - generated three independently randomized blind-review packets;
-- pending three qualified independent visual-review submissions;
-- emit qualified image-review evidence.
+- pending three qualified independent visual-review submissions and unique
+  externally verified generation/reviewer receipts;
+- rebuild qualified R06 evidence from the plan in an authority-bearing host;
+  ordinary CLI aggregation remains diagnostic.
 
 ### Phase D: Full Real Benchmark
 
@@ -343,6 +397,8 @@ Status: locally complete; independent reproduction pending.
   regression as evidence that repeated matched runs and selection diagnostics
   are required before more optimizer tuning;
 - run all 12 domains and 60 cases in at least three v26 replicates;
+- integrate an independently trusted `ModelCallReceiptVerifier`; provider-looking
+  metadata and locally generated hashes remain diagnostic only;
 - aggregate and validate all 180 or more matched observations before any E3
   claim;
 - analyze every loss and fatal flaw;
@@ -352,6 +408,11 @@ Status: locally complete; independent reproduction pending.
 ### Phase E: Independent Evidence
 
 - complete expert review;
+- integrate a trusted `ReviewerSubmissionVerifier` and verify unique bound
+  receipts for every reviewer;
+- integrate trusted `ImageGenerationReceiptVerifier` and
+  `VisualReviewerSubmissionVerifier` implementations and verify every R06
+  source receipt while replaying the visual-review plan;
 - complete three-machine reproduction;
 - close P0/P1 defects;
 - generate claim audit and final readiness report.
@@ -370,11 +431,20 @@ Primary risks:
 
 Immediate sequence:
 
-1. collect and validate three qualified independent visual-review submissions;
-2. run the remaining 11 domains and 55 cases under immutable configurations;
-3. classify every loss and add regression fixtures before Prompt changes;
-4. conduct expert review and independent reproduction;
-5. close defects and run `assess-readiness --require-complete`.
+1. finish the immutable v0.4.0 release candidate, then authorize campaign roles,
+   dependencies, providers, budgets, retention, and external reproduction;
+2. construct and independently freeze the sealed claim, safety, and external
+   reproduction sets, their source commitment, licenses, contamination checks,
+   utility anchors, and power analysis;
+3. register the candidate and all five required baseline kinds, qualify two or
+   more independent Judge families against locked human gold, and freeze every
+   model, rubric, parser, budget, route, and stopping rule;
+4. pass the full-freeze preflight before revealing any sealed payload, then run
+   the complete execution, judging, statistics, safety, robustness, and
+   efficiency matrix without changing the frozen configuration;
+5. complete E4, R05, and R06 authority replay, three independent offline
+   reproductions, the separate unseen-set rerun, defect closure, claim audit,
+   and `assess-readiness --require-complete`.
 
 The project may be called stable only when the final command exits successfully
 against a complete, immutable evidence bundle.

@@ -6,11 +6,13 @@ from prompt_performance_engine.contracts import OptimizationRequest
 from prompt_performance_engine.runtime import optimize
 
 
+def transport(prompt: str) -> str:
+    return json.dumps({"optimized_prompt": prompt})
+
+
 class RuntimeTests(unittest.TestCase):
     def test_end_to_end_optimization(self):
-        adapter = MockSequenceAdapter(
-            ["## 优化后的 Prompt\n\n```text\nReturn exact valid JSON.\n```"]
-        )
+        adapter = MockSequenceAdapter([transport("Return exact valid JSON.")])
         result = optimize(
             OptimizationRequest(
                 source_prompt="Extract data as JSON.",
@@ -33,7 +35,7 @@ class RuntimeTests(unittest.TestCase):
         adapter = MockSequenceAdapter(
             [
                 "I forgot the Prompt.",
-                "```text\nComplete repaired Prompt.\n```",
+                transport("Complete repaired Prompt."),
             ]
         )
         result = optimize(
@@ -58,9 +60,7 @@ class RuntimeTests(unittest.TestCase):
             )
 
     def test_variable_loss_stays_at_e0(self):
-        adapter = MockSequenceAdapter(
-            ["## Optimized Prompt\n\n```text\nWrite a strong report.\n```"]
-        )
+        adapter = MockSequenceAdapter([transport("Write a strong report.")])
         result = optimize(
             OptimizationRequest(
                 source_prompt="Write about {{TOPIC}}.",
@@ -75,7 +75,7 @@ class RuntimeTests(unittest.TestCase):
         adapter = MockSequenceAdapter(
             [
                 CompletionResponse(
-                    text="## Optimized Prompt\n\n```text\nComplete prompt.\n```",
+                    text=transport("Complete prompt."),
                     provider="test-provider",
                     model="test-model",
                     response_id="response-1",
@@ -94,16 +94,18 @@ class RuntimeTests(unittest.TestCase):
     def test_tournament_selects_one_of_three_candidates(self):
         adapter = MockSequenceAdapter(
             [
-                "<optimized_prompt>Candidate one.</optimized_prompt>",
-                "<optimized_prompt>Candidate two.</optimized_prompt>",
-                "<optimized_prompt>Candidate three.</optimized_prompt>",
+                transport("Candidate one."),
+                transport("Candidate two."),
+                transport("Candidate three."),
                 '{"selected_index": 2}',
             ]
         )
         result = optimize(
-            OptimizationRequest(source_prompt="Write a report."),
+            OptimizationRequest(
+                source_prompt="Write a report.",
+                candidate_count=3,
+            ),
             adapter,
-            candidate_count=3,
         )
         self.assertEqual(result.optimized_prompt, "Candidate two.")
         self.assertEqual(result.artifact["runtime"]["total_calls"], 4)
@@ -128,11 +130,97 @@ class RuntimeTests(unittest.TestCase):
             [False, True, False],
         )
 
+    def test_request_candidate_count_is_used_when_call_override_is_omitted(self):
+        adapter = MockSequenceAdapter(
+            [
+                transport("Candidate one."),
+                transport("Candidate two."),
+                '{"selected_index": 2}',
+            ]
+        )
+        result = optimize(
+            OptimizationRequest(
+                source_prompt="Write a report.",
+                candidate_count=2,
+            ),
+            adapter,
+        )
+        self.assertEqual(result.optimized_prompt, "Candidate two.")
+        self.assertEqual(result.artifact["runtime"]["selection"]["candidate_count"], 2)
+
+    def test_legacy_candidate_count_keyword_overrides_request_default(self):
+        adapter = MockSequenceAdapter(
+            [
+                transport("Candidate one."),
+                transport("Candidate two."),
+                '{"selected_index": 2}',
+            ]
+        )
+        result = optimize(
+            OptimizationRequest(source_prompt="Write a report."),
+            adapter,
+            candidate_count=2,
+        )
+        self.assertEqual(result.optimized_prompt, "Candidate two.")
+        self.assertEqual(result.artifact["runtime"]["selection"]["candidate_count"], 2)
+
+    def test_legacy_candidate_count_keyword_rejects_request_conflict(self):
+        adapter = MockSequenceAdapter([])
+        with self.assertRaisesRegex(ValueError, "candidate_count conflicts"):
+            optimize(
+                OptimizationRequest(
+                    source_prompt="Write a report.",
+                    candidate_count=2,
+                ),
+                adapter,
+                candidate_count=3,
+            )
+        self.assertEqual(adapter.calls, [])
+
+    def test_selector_does_not_guess_json_from_commentary(self):
+        adapter = MockSequenceAdapter(
+            [
+                transport("Candidate one."),
+                transport("Candidate two."),
+                'I selected this one: {"selected_index": 2}',
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "one JSON object only"):
+            optimize(
+                OptimizationRequest(
+                    source_prompt="Write a report.",
+                    candidate_count=2,
+                ),
+                adapter,
+            )
+
+    def test_selector_rejects_duplicate_and_extra_fields(self):
+        for selector_response in (
+            '{"selected_index": 1, "selected_index": 2}',
+            '{"selected_index": 1, "comment": "extra"}',
+        ):
+            with self.subTest(selector_response=selector_response):
+                adapter = MockSequenceAdapter(
+                    [
+                        transport("Candidate one."),
+                        transport("Candidate two."),
+                        selector_response,
+                    ]
+                )
+                with self.assertRaisesRegex(ValueError, "Candidate selector"):
+                    optimize(
+                        OptimizationRequest(
+                            source_prompt="Write a report.",
+                            candidate_count=2,
+                        ),
+                        adapter,
+                    )
+
     def test_selector_receives_complete_compiled_contract(self):
         adapter = MockSequenceAdapter(
             [
-                "<optimized_prompt>Candidate one.</optimized_prompt>",
-                "<optimized_prompt>Candidate two.</optimized_prompt>",
+                transport("Candidate one."),
+                transport("Candidate two."),
                 '{"selected_index": 1}',
             ]
         )
@@ -142,9 +230,9 @@ class RuntimeTests(unittest.TestCase):
                 domain="marketing_sales",
                 required_behaviors=("Preserve the exact CTA.",),
                 forbidden_changes=("Do not change the offer.",),
+                candidate_count=2,
             ),
             adapter,
-            candidate_count=2,
         )
         selector_payload = json.loads(adapter.calls[-1]["user_payload"])
         self.assertEqual(

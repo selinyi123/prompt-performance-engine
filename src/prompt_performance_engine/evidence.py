@@ -16,16 +16,24 @@ class Evidence:
     limitations: tuple[str, ...]
 
     def validate(self) -> None:
-        if self.level not in LEVEL_ORDER:
+        if not isinstance(self.level, str) or self.level not in LEVEL_ORDER:
             raise ValueError(f"Unknown evidence level: {self.level!r}.")
-        if self.status not in {"candidate", "verified_scoped"}:
+        if not isinstance(self.status, str) or self.status not in {
+            "candidate",
+            "verified_scoped",
+        }:
             raise ValueError(f"Unknown evidence status: {self.status!r}.")
         if self.status == "verified_scoped" and LEVEL_ORDER[self.level] < 2:
             raise ValueError("verified_scoped requires at least E2 evidence.")
-        if not self.claim.strip():
+        if not isinstance(self.claim, str) or not self.claim.strip():
             raise ValueError("Evidence claim must not be empty.")
-        if not self.limitations:
-            raise ValueError("Evidence limitations must not be empty.")
+        if not isinstance(self.limitations, tuple) or not self.limitations:
+            raise ValueError("Evidence limitations must be a non-empty tuple.")
+        if any(
+            not isinstance(limitation, str) or not limitation.strip()
+            for limitation in self.limitations
+        ):
+            raise ValueError("Evidence limitations must contain non-empty strings.")
 
 
 def infer_evidence(
@@ -37,6 +45,20 @@ def infer_evidence(
     expert_reviewers: int = 0,
     independently_reproduced: bool = False,
 ) -> Evidence:
+    """Infer evidence available from an optimization or one matched evaluation.
+
+    The higher-order inputs are retained for source compatibility, but they are
+    intentionally non-authoritative.  E3 and above can only be serialized by
+    the validators that own the corresponding aggregate artifacts:
+
+    * E3: a valid, release-gated benchmark replicate report;
+    * E4: a valid human-review report bound to that replicate report; and
+    * E5: a future independent-reproduction aggregate bound to E4.
+
+    A caller-supplied boolean or reviewer count is therefore never sufficient
+    to promote evidence beyond a single matched evaluation (E2).
+    """
+    del repeated_or_cross_model, expert_reviewers, independently_reproduced
     level = "E0"
     if deterministic_checks_passed:
         level = "E1"
@@ -46,13 +68,6 @@ def infer_evidence(
         and comparative_improvement_passed
     ):
         level = "E2"
-    if level == "E2" and matched_cases >= 20 and repeated_or_cross_model:
-        level = "E3"
-    if level == "E3" and expert_reviewers >= 3:
-        level = "E4"
-    if level == "E4" and independently_reproduced:
-        level = "E5"
-
     verified = LEVEL_ORDER[level] >= 2
     limitations = [
         "Evidence is valid only for the recorded models, settings, cases, and artifact versions.",

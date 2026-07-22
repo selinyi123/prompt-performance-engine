@@ -1,6 +1,6 @@
 # Implementation Status
 
-Status date: 2026-06-13
+Status date: 2026-07-22
 
 ## Completed
 
@@ -28,12 +28,50 @@ Status date: 2026-06-13
 - E0/E1 evidence assignment based on optimized-Prompt audit results.
 - Canonical artifact payload hashes and deterministic file manifests.
 
+### v0.4.0 Frontier Evidence Contract
+
+ADR-011 records that the unpublished v0.4.0 milestone retained its original
+comparative-runtime scope and expanded to include the fail-closed frontier
+contract. This is a pre-publication scope evolution, not evidence that the
+external campaign or later stable-release gates have passed.
+
+- Public frontier Schema family `1.0.0` for frozen campaign, policy,
+  commitment, preflight, execution, report, claim, replay, and reproduction
+  artifacts.
+- Canonical, contained, write-once authority-artifact I/O and strict bundle
+  validation.
+- Fail-closed full-freeze preflight, atomic budget accounting, and a
+  preflight-authorized provider-attempt host.
+- Final report and claim-inventory validation plus deterministic offline replay
+  and three-replay reproduction-set validation.
+- Explicit independent verifier boundaries; local test verifiers do not grant
+  real campaign authority.
+
 ## Current Evidence
 
-- Unit and behavior suite: 178 tests passing after the v24 multi-candidate
-  evidence, CLI, service, and structured adapter-error batch.
+- The public 60-case catalog is a development/regression suite, not a sealed
+  frontier claim set. `QUALITY-GATE-SPEC.md` defines the additional strong
+  baselines, statistics, robustness, safety, cost, latency, and independent
+  evaluator evidence required for a scoped top-tier claim.
+- Dependency-free frontier diagnostics now cover normalized macro/micro/worst
+  and bottom-CVaR quality, seeded case-cluster and domain-stratified macro
+  intervals, case-cluster safety aggregation and exact safety bounds,
+  clean/perturbed robustness, fully charged cost summaries, Type-7 latency
+  percentiles, and descriptive Pareto membership.
+  They are local building blocks, not claim authority. The versioned frontier
+  contract, full-freeze preflight, budgeted execution host, reporting, and
+  offline replay are implemented; the real independent authorities and external
+  frontier campaign have not been executed.
+- Unit and behavior suite: 539 tests passed locally in the final 0.4.0 run;
+  one case-sensitive-path test was skipped on Windows. The same run configured
+  the immutable `python:3.13-alpine` image by digest and passed all four live
+  Docker isolation, timeout, memory, and software-contract integration tests.
+  This validates the local sandbox implementation, not an external R05 or
+  frontier authority claim.
 - Adversarial regression: 20 of 20 cases passing.
-- Release validator: passing for package 0.3.0 and schema 1.0.0.
+- Release validator: passing for package 0.4.0, current stable artifact schema
+  2.0.0, read-only legacy artifact schema 1.0.0, and frontier contract schema
+  1.0.0.
 - Domain definitions: 12 profiles, 60 cases, 12 adversarial cases.
 - Software case verification: all five cases have authoritative machine checks.
   Four Python artifacts use restricted AST extraction plus trusted hidden
@@ -42,6 +80,13 @@ Status date: 2026-06-13
   filesystem, identity, timeout, and memory boundaries.
 - Provider adapters: local contract tests cover request shape, retries,
   cancellation, timeout, command permissions, and usage capture.
+- Current-host Codex smoke: after fixing Windows launcher discovery to accept the
+  installed `codex.exe`, one real optimization call and one real benchmark
+  execution call completed with response identities, usage, and bound request/
+  response digests. The next evaluation call entered repeated connection
+  timeouts, so the bounded run was stopped and emitted a hash-valid structured
+  failure artifact. It produced no evaluation summary and grants no performance
+  claim.
 - Service: local integration tests cover HTTP auth, persistence, idempotency,
   atomic artifacts, restart recovery, and validated multi-candidate requests.
 - CLI: known quota and adapter failures return sanitized JSON with stable exit
@@ -155,26 +200,33 @@ candidate as the default, and records unsupported Codex CLI generation
   2W/0T/3L with zero hard, critical, or fatal regressions. The selector chose
   `concise_channel_fit`; three losses cited insufficient hierarchy, segment
   depth, or continuity. Diversity alone did not prove stable improvement.
-- v26 closes a claim-inflation defect: a single 60-case run is now capped at E2.
-  E3 requires at least three unique, configuration-compatible runs whose
+- The v26 Codex runner and replicate aggregator cap a single 60-case run at E2.
+  The E3 path requires at least three unique, configuration-compatible runs whose
   manifests, summaries, optimization artifacts, Prompt bindings, per-domain
   evaluations, case definitions, consensus, stability metrics, and release
-  gates all validate. Copied run fingerprints and rehashed derived-field
-  tampering fail closed.
+  gates all validate, plus a trusted `ModelCallReceiptVerifier` that binds every
+  provider call to its request, response, and evaluation context. Copied run
+  fingerprints, reused receipts, self-reported provider metadata, and rehashed
+  derived-field tampering fail closed. Generic evaluation is permanently capped
+  at E2; human-review and readiness now require and validate this replicate authority.
 - The Docker execution backend now creates and policy-inspects the container
   before attaching execution. This closes a timeout race where the container
-  could disappear before evidence inspection. All three live Docker isolation,
-  timeout, and memory tests pass after the change.
+  could disappear before evidence inspection. The live Docker suite covers
+  isolation, timeout, memory, and a software contract; it remains an
+  environment-specific CI gate and was not run in the local no-image check.
 
-## Implemented After v0.3, Gate Pending
+## Implemented in v0.4.0, External Gates Pending
 
 - Matched original-versus-optimized evaluation with hard-check precedence,
   randomized A/B mapping, two-judge aggregation, a single-run E2 ceiling,
   and a validated three-replicate E3 gate.
 - Twelve domain profiles with observable checks and domain hard-check plugins.
 - OpenAI Responses API and external-command adapters.
-- Blind human-review packets, position probes, adjudication, agreement metrics,
-  and an E4 gate.
+- HMAC-v3 blind human-review packets with fresh coordinator-only blinding keys,
+  public key commitments, at least two reversed position probes, per-reviewer
+  protocol metrics, agreement metrics, trusted reviewer receipts, a direct
+  human win/loss gate, and an E4 gate. Coordinator adjudication is diagnostic
+  and cannot qualify E4.
 - Persistent local HTTP service with SQLite jobs and atomic artifact storage.
 - Legacy Prompt migration and untrusted audit-reference import.
 - Target-surface capability contracts and deliverable-kind recovery.
@@ -189,18 +241,93 @@ candidate as the default, and records unsupported Codex CLI generation
 - Machine-readable ten-requirement readiness assessment with immutable evidence
   references and a fail-closed stable-release gate.
 - A `build-code-evidence` command that derives hashed R05 evidence from
-  validated authoritative software hard checks.
+  validated authoritative software hard checks through an explicit
+  `DockerSandbox`, plus strict `code-execution-plan` source replay for stable
+  R05 authority. Standalone report creation is not itself authority.
 - A fixed Docker sandbox policy plus a dedicated CI job that executes its
   isolation, timeout, and out-of-memory integration tests.
 - Actual-image registration with PNG structural/pixel verification, matched
   baseline-versus-optimized assets, randomized blind visual-review packets,
   qualified-reviewer profiles, rubric scoring, and hash-linked R06 evidence.
+  Visual packets use `balanced_hmac_sha256_v2` with a fresh per-packet 256-bit
+  secret and public commitment; strict `visual-review-plan` replay and the two
+  external receipt-verifier boundaries are implemented.
+- Canonical frontier artifact I/O, full-freeze campaign validation, authoritative
+  preflight interfaces, atomic multi-axis budget accounting, and a
+  preflight-bound provider-attempt host.
+- Strict frontier report and claim-inventory derivation plus byte-identical
+  offline replay and three-independent-replay aggregation contracts.
 
-These capabilities remain unreleased because roadmap versions advance only
-after their evidence gates, not merely after implementation.
+These local capabilities do not satisfy their external evidence gates merely by
+being implemented. The frontier machine result remains `not_evaluable` until
+real independent authorities execute a sealed campaign and the required
+reproduction workflows.
+
+## Blocking Engineering Work
+
+- **Output-mode naming debt:** `standard`, `prompt_only`, and
+  `evaluation_package` are retained request values for schema compatibility,
+  but the current contract intentionally gives all three the same strict JSON
+  model transport and decoded-Prompt CLI output. Distinct presentation bundles
+  are not implemented and must not be advertised without a versioned public
+  contract and migration plan.
+- **Release publication:** the source package is labeled `0.4.0`, but artifact
+  publication, migration approval, and release promotion remain separate. Do
+  not describe this package as stable or frontier-qualified without the required
+  evidence.
+
+## Closed Engineering Work (2026-07-21)
+
+- Prevented a passing narrow hard check from automatically winning an otherwise
+  subjective comparison; eligible optimized outputs still require blind quality
+  judgment. R06 also rejects complete visual reviews whose optimized images do
+  not win more cases than they lose.
+- Moved benchmark model calls to an empty temporary working directory outside
+  the checkout. This is defense in depth only: a sealed frontier campaign must
+  use a provider boundary that cannot read the benchmark or evaluator sources.
+- Removed the production host-Python fallback. Executable software checks,
+  recorded evaluation, the Codex benchmark runner, and code-evidence generation
+  require a digest-pinned, policy-verified Docker sandbox and fail before model
+  output execution when that boundary is unavailable.
+- Closed E3/E4 authority bypasses: single evaluation is capped at E2, E3 comes
+  only from a replicate aggregate exactly reproduced from its source run
+  directories with a trusted model-call receipt verifier, uses accepted-provider
+  call identities, unique externally verified receipts, and semantic run
+  fingerprints, and rejects mock, unidentified, reused, or metadata-only copied
+  runs. E4 requires exact source-plan reconstruction, artifact binding,
+  all-reviewer coverage, opaque public items, replay of balanced sampling and
+  blind A/B placement, per-reviewer probe/non-degeneracy gates, positive human
+  improvement, and unique trusted reviewer-submission receipts. Readiness replays
+  those sources with the same verifiers rather than trusting a detached report.
+- Unified HTTP request decoding, `OptimizationRequest`, and the JSON Schema.
+  Required fields, unknown fields, scalar types, array element types, and
+  `candidate_count` now fail closed before job creation; excessive JSON nesting
+  produces a bounded 400 response instead of leaking a recursion failure.
+- Replaced tag/fence response guessing with one exact `optimized_prompt` JSON
+  object, made selector JSON strict, and encoded Codex wrapper bodies so
+  untrusted payloads cannot close their boundaries. Literal tag text is now
+  representable inside an optimized Prompt.
+- Made E1 artifacts self-contained by binding the source Prompt, strictly
+  validating every artifact field, replaying both deterministic audits, and
+  deriving evidence from the replayed result rather than self-reported facts.
+- Docker verification now rejects unexpected effective mounts and treats any
+  container-removal timeout or failure as an authoritative sandbox failure.
+- R05 readiness now binds `authority_sources.code_execution_plan`, requires an
+  explicit live `DockerSandbox` matching its immutable image, reruns the source
+  evaluation and sandbox probes, and compares the complete rebuilt evidence
+  report. Detached/offline self-hashed code facts fail closed.
+- R06 readiness now binds `authority_sources.visual_review_plan`, replays the
+  exact generation manifest and packet/key/submission/profile bundle, and
+  requires unique receipts from `ImageGenerationReceiptVerifier` and
+  `VisualReviewerSubmissionVerifier`. The ordinary aggregation CLI injects no
+  verifier and remains diagnostic.
 
 ## Blocking External Evidence
 
+- No real sealed frontier campaign has run through the implemented preflight,
+  execution host, independent receipt authorities, reporting, and replay path.
+  Local simulated verifiers establish contract behavior only, so the frontier
+  machine result remains `not_evaluable`.
 - All 12 domains require at least three fresh, configuration-compatible v26
   pinned-provider runs against `cross-domain-60-v2`, followed by validated
   replicate aggregation.
@@ -211,10 +338,18 @@ after their evidence gates, not merely after implementation.
 - A fresh-environment installation and replay must be independently reproduced.
 - The local fresh-target wheel smoke test is complete, but it is not an
   independent-machine or independent-operator reproduction.
-- Local R05 Docker isolation evidence is complete; independent-machine and
-  independent-operator reproduction remains pending.
+- Docker-only implementation and policy-contract tests are complete locally.
+  Four live Docker tests can be skipped when no configured immutable
+  integration image/daemon is supplied. This run did not produce live R05
+  Docker isolation evidence; live execution, independent-machine, and
+  independent-operator evidence remain pending.
+- Fresh E3/E4 evidence also requires host integrations for the independent
+  model-call and reviewer-submission receipt authorities. The standalone CLI has
+  no implicit verifier and therefore remains diagnostic/below-authority by
+  design.
 - The first matched image run has all 10 required assets generated and
-  validated. Three qualified independent visual reviewers remain before R06
-  can pass.
+  validated. Three qualified independent visual reviewers, unique externally
+  verified image-generation and reviewer-submission receipts, and an
+  authority-replayed `visual-review-plan` remain before R06 can pass.
 - The current readiness manifest validates, but only 4 of 10 mandatory gates
   pass; stable-release status therefore remains incomplete.

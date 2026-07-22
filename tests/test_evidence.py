@@ -28,7 +28,7 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(evidence.level, "E1")
         self.assertEqual(evidence.claim, "optimized_candidate")
 
-    def test_e5_requires_all_prior_evidence(self):
+    def test_caller_booleans_cannot_promote_past_single_evaluation(self):
         evidence = infer_evidence(
             deterministic_checks_passed=True,
             matched_cases=20,
@@ -37,7 +37,7 @@ class EvidenceTests(unittest.TestCase):
             expert_reviewers=3,
             independently_reproduced=True,
         )
-        self.assertEqual(evidence.level, "E5")
+        self.assertEqual(evidence.level, "E2")
 
 
 if __name__ == "__main__":

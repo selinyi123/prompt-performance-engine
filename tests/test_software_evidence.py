@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import io
 import json
@@ -5,6 +6,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from prompt_performance_engine.cli import main
 from prompt_performance_engine.evaluation import (
@@ -18,14 +20,91 @@ from prompt_performance_engine.evaluation import (
 from prompt_performance_engine.hashing import hash_payload
 from prompt_performance_engine.software_evidence import (
     build_code_execution_evidence,
+    load_code_execution_plan,
+    validate_code_execution_authority,
 )
-from prompt_performance_engine.software_sandbox import SandboxRun
+from prompt_performance_engine.software_sandbox import DockerSandbox, SandboxRun
 
 
 IMAGE = (
     "python:3.13-alpine@sha256:"
     "db66119d6609a3a941a9433b225f4e13d33c459cede097cf3ec2fc4d1bd314b2"
 )
+
+
+def sandbox_run(
+    *,
+    passed: bool,
+    detail: str,
+    exit_code: int | None,
+    timed_out: bool = False,
+    oom_killed: bool = False,
+    probe_facts: dict | None = None,
+    exit_state_verified: bool = True,
+    elapsed_ms: int = 1,
+) -> SandboxRun:
+    return SandboxRun(
+        passed=passed,
+        detail=detail,
+        stdout='PPE_PYTHON_VERSION=3.13.14\n{"status": "passed"}\n',
+        stderr="",
+        exit_code=exit_code,
+        elapsed_ms=elapsed_ms,
+        timed_out=timed_out,
+        oom_killed=oom_killed,
+        image_reference=IMAGE,
+        image_id="sha256:" + "d" * 64,
+        python_version="3.13.14",
+        probe_facts=probe_facts or {},
+        policy={"network_mode": "none"},
+        policy_verified=True,
+        exit_state_verified=exit_state_verified,
+    )
+
+
+def verified_sandbox() -> DockerSandbox:
+    with patch(
+        "prompt_performance_engine.software_sandbox.shutil.which",
+        return_value="docker",
+    ):
+        sandbox = DockerSandbox(IMAGE)
+    sandbox.run_script = Mock(
+        return_value=sandbox_run(
+            passed=True,
+            detail="verified",
+            exit_code=0,
+        )
+    )
+    sandbox.verify_isolation = Mock(
+        return_value=sandbox_run(
+            passed=True,
+            detail="verified",
+            exit_code=0,
+            probe_facts={
+                "network_blocked": True,
+                "root_read_only": True,
+                "tmp_writable": True,
+                "non_root": True,
+            },
+        )
+    )
+    sandbox.verify_resource_limits = Mock(
+        return_value={
+            "timeout": sandbox_run(
+                passed=False,
+                detail="expected timeout",
+                exit_code=0,
+                timed_out=True,
+            ),
+            "memory": sandbox_run(
+                passed=False,
+                detail="expected OOM",
+                exit_code=137,
+                oom_killed=True,
+            ),
+        }
+    )
+    return sandbox
 
 
 VALID_OUTPUTS = {
@@ -174,7 +253,11 @@ def rename_cli(argv, exists, rename, emit):
 }
 
 
-def software_evaluation() -> dict:
+def software_evaluation(
+    *,
+    sandbox: DockerSandbox | None = None,
+) -> dict:
+    sandbox = sandbox or verified_sandbox()
     cases = [
         EvaluationCase(
             case_id=case_id,
@@ -205,14 +288,40 @@ def software_evaluation() -> dict:
         executor=RecordedExecutor(outputs),
         judges=judges,
         config=ExecutionConfig(model="recorded"),
+        software_sandbox=sandbox,
     )
+
+
+def code_execution_authority_fixture(
+    root: Path,
+) -> tuple[dict, dict, dict, DockerSandbox]:
+    sandbox = verified_sandbox()
+    evaluation = software_evaluation(sandbox=sandbox)
+    report = build_code_execution_evidence(
+        evaluation,
+        report_id="software-authority",
+        sandbox=sandbox,
+    )
+    (root / "evaluation.json").write_text(
+        json.dumps(evaluation),
+        encoding="utf-8",
+    )
+    plan = {
+        "schema_version": "2.0.0",
+        "report_id": "software-authority",
+        "evaluation": "evaluation.json",
+        "sandbox_image": IMAGE,
+    }
+    return report, plan, evaluation, sandbox
 
 
 class SoftwareEvidenceTests(unittest.TestCase):
     def test_builds_hashed_evidence_from_authoritative_checks(self):
+        sandbox = verified_sandbox()
         report = build_code_execution_evidence(
-            software_evaluation(),
+            software_evaluation(sandbox=sandbox),
             report_id="software-v14",
+            sandbox=sandbox,
         )
 
         self.assertEqual(report["facts"]["eligible_cases"], 5)
@@ -220,7 +329,7 @@ class SoftwareEvidenceTests(unittest.TestCase):
         self.assertEqual(report["facts"]["passed_cases"], 5)
         self.assertEqual(report["facts"]["restricted_subprocess_cases"], 4)
         self.assertEqual(report["facts"]["formal_contract_cases"], 1)
-        self.assertFalse(report["facts"]["sandboxed"])
+        self.assertTrue(report["facts"]["sandboxed"])
         self.assertTrue(
             all(
                 result["reverified"]
@@ -236,90 +345,58 @@ class SoftwareEvidenceTests(unittest.TestCase):
             hash_payload(report, "evidence_sha256"),
         )
 
+    def test_build_code_evidence_fails_closed_without_sandbox(self):
+        with self.assertRaisesRegex(ValueError, "DockerSandbox is required"):
+            build_code_execution_evidence(
+                software_evaluation(),
+                report_id="software-v14",
+            )
+
+    def test_failed_isolation_probe_prevents_candidate_execution(self):
+        evaluation = software_evaluation()
+        sandbox = verified_sandbox()
+        sandbox.verify_isolation.return_value = sandbox_run(
+            passed=False,
+            detail="isolation failed",
+            exit_code=2,
+        )
+
+        with self.assertRaisesRegex(ValueError, "isolation could not be verified"):
+            build_code_execution_evidence(
+                evaluation,
+                report_id="software-v14",
+                sandbox=sandbox,
+            )
+
+        sandbox.run_script.assert_not_called()
+        sandbox.verify_resource_limits.assert_not_called()
+
+    def test_conflicting_memory_probe_exit_state_prevents_candidate_execution(self):
+        evaluation = software_evaluation()
+        sandbox = verified_sandbox()
+        sandbox.verify_resource_limits.return_value["memory"] = sandbox_run(
+            passed=False,
+            detail="Docker sandbox exit state did not match the attached process.",
+            exit_code=137,
+            oom_killed=True,
+            exit_state_verified=False,
+        )
+
+        with self.assertRaisesRegex(ValueError, "resource limits could not be verified"):
+            build_code_execution_evidence(
+                evaluation,
+                report_id="software-v14",
+                sandbox=sandbox,
+            )
+
+        sandbox.run_script.assert_not_called()
+
     def test_docker_evidence_requires_probe_and_all_executable_cases(self):
-        class FakeSandbox:
-            def verify_isolation(self):
-                return SandboxRun(
-                    passed=True,
-                    detail="verified",
-                    stdout=(
-                        "PPE_PYTHON_VERSION=3.13.14\n"
-                        '{"network_blocked": true}\n'
-                    ),
-                    stderr="",
-                    exit_code=0,
-                    elapsed_ms=1,
-                    timed_out=False,
-                    oom_killed=False,
-                    image_reference=IMAGE,
-                    image_id="sha256:" + "d" * 64,
-                    python_version="3.13.14",
-                    probe_facts={
-                        "network_blocked": True,
-                        "root_read_only": True,
-                        "tmp_writable": True,
-                        "non_root": True,
-                    },
-                    policy={"network_mode": "none"},
-                    policy_verified=True,
-                )
-
-            def run_script(self, script, *, timeout_seconds=8.0):
-                del script, timeout_seconds
-                return SandboxRun(
-                    passed=True,
-                    detail="verified",
-                    stdout=(
-                        "PPE_PYTHON_VERSION=3.13.14\n"
-                        '{"status": "passed"}\n'
-                    ),
-                    stderr="",
-                    exit_code=0,
-                    elapsed_ms=1,
-                    timed_out=False,
-                    oom_killed=False,
-                    image_reference=IMAGE,
-                    image_id="sha256:" + "d" * 64,
-                    python_version="3.13.14",
-                    probe_facts={},
-                    policy={"network_mode": "none"},
-                    policy_verified=True,
-                )
-
-            def verify_resource_limits(self):
-                common = {
-                    "detail": "expected failure",
-                    "stdout": "",
-                    "stderr": "",
-                    "elapsed_ms": 1,
-                    "image_reference": IMAGE,
-                    "image_id": "sha256:" + "d" * 64,
-                    "python_version": "3.13.14",
-                    "probe_facts": {},
-                    "policy": {"network_mode": "none"},
-                    "policy_verified": True,
-                }
-                return {
-                    "timeout": SandboxRun(
-                        passed=False,
-                        exit_code=0,
-                        timed_out=True,
-                        oom_killed=False,
-                        **common,
-                    ),
-                    "memory": SandboxRun(
-                        passed=False,
-                        exit_code=137,
-                        timed_out=False,
-                        oom_killed=True,
-                        **common,
-                    ),
-                }
-
+        sandbox = verified_sandbox()
         report = build_code_execution_evidence(
-            software_evaluation(),
+            software_evaluation(sandbox=sandbox),
             report_id="software-docker",
-            sandbox=FakeSandbox(),
+            sandbox=sandbox,
         )
 
         self.assertTrue(report["facts"]["sandboxed"])
@@ -330,33 +407,40 @@ class SoftwareEvidenceTests(unittest.TestCase):
         )
 
     def test_cli_writes_code_evidence(self):
+        sandbox = verified_sandbox()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             evaluation_path = root / "evaluation.json"
             output_path = root / "evidence" / "code-execution.json"
             evaluation_path.write_text(
-                json.dumps(software_evaluation()),
+                json.dumps(software_evaluation(sandbox=sandbox)),
                 encoding="utf-8",
             )
             stdout = io.StringIO()
 
-            with redirect_stdout(stdout):
-                exit_code = main(
-                    [
-                        "build-code-evidence",
-                        str(evaluation_path),
-                        "--report-id",
-                        "software-v14",
-                        "--output",
-                        str(output_path),
-                    ]
-                )
+            with patch(
+                "prompt_performance_engine.cli.DockerSandbox",
+                return_value=sandbox,
+            ):
+                with redirect_stdout(stdout):
+                    exit_code = main(
+                        [
+                            "build-code-evidence",
+                            str(evaluation_path),
+                            "--report-id",
+                            "software-v14",
+                            "--sandbox-image",
+                            IMAGE,
+                            "--output",
+                            str(output_path),
+                        ]
+                    )
 
             self.assertEqual(exit_code, 0)
             self.assertTrue(output_path.is_file())
             summary = json.loads(stdout.getvalue())
             self.assertEqual(summary["passed_cases"], 5)
-            self.assertFalse(summary["sandboxed"])
+            self.assertTrue(summary["sandboxed"])
 
     def test_rejects_tampered_evaluation(self):
         evaluation = software_evaluation()
@@ -367,6 +451,211 @@ class SoftwareEvidenceTests(unittest.TestCase):
                 evaluation,
                 report_id="software-v14",
             )
+
+    def test_authority_rebuilds_report_from_strict_source_plan(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report, plan, _, sandbox = code_execution_authority_fixture(root)
+
+            sources = load_code_execution_plan(plan, root=root)
+            self.assertEqual(sources["report_id"], "software-authority")
+            self.assertEqual(sources["sandbox_image"], IMAGE)
+            self.assertEqual(
+                sources["evaluation"]["evaluation_sha256"],
+                report["provenance"]["evaluation_sha256"],
+            )
+            self.assertEqual(
+                validate_code_execution_authority(
+                    report,
+                    plan,
+                    root=root,
+                    sandbox=sandbox,
+                ),
+                [],
+            )
+
+    def test_authority_ignores_nondeterministic_probe_elapsed_time(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report, plan, _, sandbox = code_execution_authority_fixture(root)
+            sandbox.verify_resource_limits.return_value = {
+                "timeout": sandbox_run(
+                    passed=False,
+                    detail="expected timeout",
+                    exit_code=0,
+                    timed_out=True,
+                    elapsed_ms=999,
+                ),
+                "memory": sandbox_run(
+                    passed=False,
+                    detail="expected OOM",
+                    exit_code=137,
+                    oom_killed=True,
+                    elapsed_ms=1234,
+                ),
+            }
+
+            self.assertEqual(
+                validate_code_execution_authority(
+                    report,
+                    plan,
+                    root=root,
+                    sandbox=sandbox,
+                ),
+                [],
+            )
+
+    def test_authority_rejects_self_rehashed_forged_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report, plan, _, sandbox = code_execution_authority_fixture(root)
+            forged = copy.deepcopy(report)
+            forged["facts"]["passed_cases"] = 0
+            forged["evidence_sha256"] = hash_payload(
+                forged,
+                "evidence_sha256",
+            )
+
+            self.assertEqual(
+                validate_code_execution_authority(
+                    forged,
+                    plan,
+                    root=root,
+                    sandbox=sandbox,
+                ),
+                ["code-execution report does not match its source plan"],
+            )
+
+    def test_authority_rejects_tampered_source_evaluation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report, plan, evaluation, sandbox = (
+                code_execution_authority_fixture(root)
+            )
+            evaluation["suite_id"] = "forged-suite"
+            evaluation["evaluation_sha256"] = hash_payload(
+                evaluation,
+                "evaluation_sha256",
+            )
+            (root / "evaluation.json").write_text(
+                json.dumps(evaluation),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                validate_code_execution_authority(
+                    report,
+                    plan,
+                    root=root,
+                    sandbox=sandbox,
+                ),
+                ["code-execution report does not match its source plan"],
+            )
+
+    def test_authority_rejects_duplicate_fields_in_source_evaluation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report, plan, _, sandbox = code_execution_authority_fixture(root)
+            (root / "evaluation.json").write_text(
+                '{"schema_version":"2.0.0","schema_version":"2.0.0"}',
+                encoding="utf-8",
+            )
+            sandbox.verify_isolation.reset_mock()
+
+            failures = validate_code_execution_authority(
+                report,
+                plan,
+                root=root,
+                sandbox=sandbox,
+            )
+
+            self.assertEqual(len(failures), 1)
+            self.assertIn("source plan is invalid", failures[0])
+            sandbox.verify_isolation.assert_not_called()
+
+    def test_plan_requires_exact_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, plan, _, _ = code_execution_authority_fixture(root)
+            plan["unexpected"] = True
+
+            with self.assertRaisesRegex(ValueError, "fields do not match"):
+                load_code_execution_plan(plan, root=root)
+
+    def test_plan_loader_rejects_unpinned_sandbox_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, plan, _, _ = code_execution_authority_fixture(root)
+            plan["sandbox_image"] = "python:latest"
+
+            with self.assertRaisesRegex(ValueError, "immutable sha256 digest"):
+                load_code_execution_plan(plan, root=root)
+
+    def test_authority_rejects_evaluation_path_traversal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory)
+            root = parent / "authority"
+            root.mkdir()
+            report, plan, _, sandbox = code_execution_authority_fixture(root)
+            plan["evaluation"] = "../outside.json"
+            (parent / "outside.json").write_text("{}", encoding="utf-8")
+
+            failures = validate_code_execution_authority(
+                report,
+                plan,
+                root=root,
+                sandbox=sandbox,
+            )
+
+            self.assertEqual(len(failures), 1)
+            self.assertIn("escapes the plan root", failures[0])
+
+    def test_authority_rejects_sandbox_image_mismatch_before_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report, plan, _, sandbox = code_execution_authority_fixture(root)
+            plan["sandbox_image"] = "python:3.13-alpine@sha256:" + "a" * 64
+            sandbox.verify_isolation.reset_mock()
+
+            self.assertEqual(
+                validate_code_execution_authority(
+                    report,
+                    plan,
+                    root=root,
+                    sandbox=sandbox,
+                ),
+                [
+                    "code-execution sandbox image does not match the source plan"
+                ],
+            )
+            sandbox.verify_isolation.assert_not_called()
+
+    def test_authority_fails_closed_without_or_with_failed_sandbox(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report, plan, _, sandbox = code_execution_authority_fixture(root)
+
+            self.assertEqual(
+                validate_code_execution_authority(
+                    report,
+                    plan,
+                    root=root,
+                    sandbox=None,
+                ),
+                [
+                    "a DockerSandbox is required for code-execution source authority"
+                ],
+            )
+
+            sandbox.verify_isolation.side_effect = RuntimeError("docker failed")
+            failures = validate_code_execution_authority(
+                report,
+                plan,
+                root=root,
+                sandbox=sandbox,
+            )
+            self.assertEqual(len(failures), 1)
+            self.assertIn("source bundle is invalid", failures[0])
 
 
 if __name__ == "__main__":

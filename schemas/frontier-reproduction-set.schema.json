@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prompt-performance-engine:schema:frontier:reproduction-set:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reproduction_set_id",
+    "reproduction_group_id",
+    "campaign_id",
+    "report_id",
+    "required_operator_count",
+    "plan_sha256s",
+    "replay_sha256s",
+    "operator_ids",
+    "machine_ids",
+    "attestation_authority_ids",
+    "attestation_receipt_sha256s",
+    "expected_report_sha256",
+    "actual_report_sha256",
+    "claim_validation_timestamp",
+    "passed",
+    "failures",
+    "reproduction_set_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "reproduction_set_id": {"$ref": "#/$defs/identifier"},
+    "reproduction_group_id": {"$ref": "#/$defs/identifier"},
+    "campaign_id": {"$ref": "#/$defs/identifier"},
+    "report_id": {"$ref": "#/$defs/identifier"},
+    "required_operator_count": {"const": 3},
+    "plan_sha256s": {"$ref": "#/$defs/threeSha256"},
+    "replay_sha256s": {"$ref": "#/$defs/threeSha256"},
+    "operator_ids": {"$ref": "#/$defs/threeIdentifiers"},
+    "machine_ids": {"$ref": "#/$defs/threeIdentifiers"},
+    "attestation_authority_ids": {"$ref": "#/$defs/threeIdentifiers"},
+    "attestation_receipt_sha256s": {"$ref": "#/$defs/threeSha256"},
+    "expected_report_sha256": {"$ref": "#/$defs/sha256"},
+    "actual_report_sha256": {"$ref": "#/$defs/sha256"},
+    "claim_validation_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+    },
+    "passed": {"type": "boolean"},
+    "failures": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "reproduction_set_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"passed": {"const": true}}, "required": ["passed"]},
+      "then": {"properties": {"failures": {"maxItems": 0}}},
+      "else": {"properties": {"failures": {"minItems": 1}}}
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\s]+$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "threeSha256": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/sha256"}
+    },
+    "threeIdentifiers": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/identifier"}
+    }
+  }
+}

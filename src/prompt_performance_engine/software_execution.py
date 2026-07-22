@@ -5,15 +5,11 @@ from __future__ import annotations
 import ast
 import copy
 import json
-import os
 import re
-import subprocess
-import sys
-import tempfile
-from pathlib import Path
 from typing import Any
 
-from .software_sandbox import DockerSandbox
+from .contracts import parse_strict_json_object
+from .software_sandbox import DockerSandbox, SandboxRun
 
 
 PYTHON_BLOCK_RE = re.compile(
@@ -42,6 +38,10 @@ FORBIDDEN_NAMES = {
     "vars",
 }
 ALLOWED_THREADING_ATTRIBUTES = {"Condition", "Event", "Lock", "RLock"}
+ALLOWED_TOP_LEVEL_CALLBACK_PARAMETERS = {
+    "handle_request": {"authenticate", "create_item"},
+    "rename_cli": {"emit", "exists", "rename"},
+}
 ALLOWED_METHOD_CALLS = {
     "_fetch",
     "_Flight",
@@ -159,7 +159,7 @@ def _python_blocks(output: str) -> list[str]:
 def _safe_literal_dependencies(
     tree: ast.Module,
     selected: list[ast.stmt],
-) -> list[ast.stmt]:
+) -> tuple[list[ast.stmt], str | None]:
     referenced = {
         item.id
         for node in selected
@@ -186,12 +186,20 @@ def _safe_literal_dependencies(
             value = item.value
         if name not in referenced or value is None:
             continue
+        if (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id == "TypeVar"
+        ):
+            # Type variables are annotation-only after future annotations and
+            # generic bases are removed from the sanitized helper classes.
+            continue
         try:
             ast.literal_eval(value)
         except (ValueError, TypeError):
-            continue
+            return [], f"Referenced dependency {name} is not a safe literal."
         dependencies.append(item)
-    return dependencies
+    return dependencies, None
 
 
 def _definition_source(
@@ -219,10 +227,13 @@ def _definition_source(
                         and item is not node
                     ]
                     selected = [*helpers, node]
-                selected = [
-                    *_safe_literal_dependencies(tree, selected),
-                    *selected,
-                ]
+                dependencies, dependency_failure = _safe_literal_dependencies(
+                    tree,
+                    selected,
+                )
+                if dependency_failure is not None:
+                    return None, dependency_failure
+                selected = [*dependencies, *selected]
                 sanitized = copy.deepcopy(selected)
                 for item in sanitized:
                     for candidate_class in (
@@ -263,15 +274,10 @@ def _definition_source(
 
 
 def _validate_restricted_ast(node: ast.AST) -> str | None:
-    parameter_names = {
-        argument.arg
-        for item in ast.walk(node)
-        if isinstance(item, (ast.FunctionDef, ast.Lambda))
-        for argument in (
-            list(item.args.posonlyargs)
-            + list(item.args.args)
-            + list(item.args.kwonlyargs)
-        )
+    parents = {
+        child: parent
+        for parent in ast.walk(node)
+        for child in ast.iter_child_nodes(parent)
     }
     local_function_names = {
         item.name for item in ast.walk(node) if isinstance(item, ast.FunctionDef)
@@ -279,7 +285,7 @@ def _validate_restricted_ast(node: ast.AST) -> str | None:
     local_class_names = {
         item.name for item in ast.walk(node) if isinstance(item, ast.ClassDef)
     }
-    allowed_direct_calls = parameter_names | local_function_names | local_class_names | {
+    allowed_direct_calls = local_function_names | local_class_names | {
         "BaseException",
         "Exception",
         "KeyError",
@@ -303,6 +309,57 @@ def _validate_restricted_ast(node: ast.AST) -> str | None:
         "tuple",
         "zip",
     }
+    allowed_callback_calls: set[ast.Call] = set()
+    callback_failure: str | None = None
+
+    class CallbackCallVisitor(ast.NodeVisitor):
+        def __init__(self) -> None:
+            self.functions: list[tuple[str, set[str], bool]] = []
+
+        def visit_FunctionDef(self, item: ast.FunctionDef) -> None:
+            parameters = {
+                argument.arg
+                for argument in (
+                    list(item.args.posonlyargs)
+                    + list(item.args.args)
+                    + list(item.args.kwonlyargs)
+                )
+            }
+            is_top_level = isinstance(parents.get(item), ast.Module)
+            self.functions.append((item.name, parameters, is_top_level))
+            self.generic_visit(item)
+            self.functions.pop()
+
+        def visit_Call(self, item: ast.Call) -> None:
+            nonlocal callback_failure
+            if isinstance(item.func, ast.Name):
+                for function_name, parameters, is_top_level in reversed(
+                    self.functions
+                ):
+                    if item.func.id not in parameters:
+                        continue
+                    permitted = (
+                        is_top_level
+                        and item.func.id
+                        in ALLOWED_TOP_LEVEL_CALLBACK_PARAMETERS.get(
+                            function_name,
+                            set(),
+                        )
+                    )
+                    if permitted:
+                        allowed_callback_calls.add(item)
+                    elif callback_failure is None:
+                        callback_failure = (
+                            "Indirect callable parameters are not permitted: "
+                            f"{item.func.id}."
+                        )
+                    break
+            self.generic_visit(item)
+
+    CallbackCallVisitor().visit(node)
+    if callback_failure is not None:
+        return callback_failure
+
     for item in ast.walk(node):
         if type(item) not in ALLOWED_NODES:
             return f"Disallowed Python construct: {type(item).__name__}."
@@ -316,15 +373,31 @@ def _validate_restricted_ast(node: ast.AST) -> str | None:
             return f"Disallowed dunder class definition: {item.name}."
         if isinstance(item, ast.Name) and item.id in FORBIDDEN_NAMES:
             return f"Disallowed Python name: {item.id}."
+        if isinstance(item, ast.Name) and item.id == "threading":
+            parent = parents.get(item)
+            direct_allowed_attribute = (
+                isinstance(parent, ast.Attribute)
+                and parent.value is item
+                and parent.attr in ALLOWED_THREADING_ATTRIBUTES
+            )
+            if not direct_allowed_attribute:
+                return "The threading module may not be aliased or passed as a value."
         if isinstance(item, ast.Attribute):
             if item.attr.startswith("__"):
                 return "Dunder attribute access is not permitted."
+            if item.attr.startswith("_") and not (
+                isinstance(item.value, ast.Name) and item.value.id == "self"
+            ):
+                return "Private attribute access is permitted only on self."
             if isinstance(item.value, ast.Name) and item.value.id == "threading":
                 if item.attr not in ALLOWED_THREADING_ATTRIBUTES:
                     return f"Disallowed threading attribute: {item.attr}."
         if isinstance(item, ast.Call):
             if isinstance(item.func, ast.Name):
-                if item.func.id not in allowed_direct_calls:
+                if (
+                    item.func.id not in allowed_direct_calls
+                    and item not in allowed_callback_calls
+                ):
                     return f"Disallowed function call: {item.func.id}."
             elif isinstance(item.func, ast.Attribute):
                 threading_constructor = (
@@ -354,6 +427,11 @@ def _run_restricted(
     timeout_seconds: float = 8.0,
     sandbox: DockerSandbox | None = None,
 ) -> tuple[bool, str]:
+    if not isinstance(sandbox, DockerSandbox):
+        return (
+            False,
+            "A verified DockerSandbox is required for executable software checks.",
+        )
     script = f"""\
 import __future__
 import builtins
@@ -412,51 +490,23 @@ import sys
 print("PPE_PYTHON_VERSION=" + sys.version.split()[0])
 print(json.dumps({{"status": "passed"}}))
 """
-    if sandbox is not None:
-        result = sandbox.run_script(script, timeout_seconds=timeout_seconds)
-        if not result.passed:
-            return False, result.detail
-        try:
-            payload = json.loads(result.stdout.strip().splitlines()[-1])
-        except (IndexError, json.JSONDecodeError):
-            return False, "Docker sandbox returned an invalid result."
-        return (
-            payload.get("status") == "passed",
-            "Docker sandbox tests passed with verified runtime policy.",
-        )
-    with tempfile.TemporaryDirectory(prefix="ppe-software-check-") as directory:
-        root = Path(directory)
-        path = root / "verify.py"
-        path.write_text(script, encoding="utf-8")
-        environment = {
-            "PYTHONIOENCODING": "utf-8",
-            "PYTHONHASHSEED": "0",
-            "PATH": os.environ.get("PATH", ""),
-            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        }
-        try:
-            completed = subprocess.run(
-                [sys.executable, "-I", "-S", str(path)],
-                cwd=root,
-                env=environment,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout_seconds,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            return False, f"Restricted verification timed out after {timeout_seconds:g}s."
-    if completed.returncode != 0:
-        final_error = completed.stderr.strip().splitlines()
-        detail = final_error[-1] if final_error else "unknown subprocess failure"
-        return False, f"Restricted verification failed: {detail}"
     try:
-        result = json.loads(completed.stdout.strip().splitlines()[-1])
+        result = sandbox.run_script(script, timeout_seconds=timeout_seconds)
+    except (OSError, RuntimeError, ValueError):
+        return False, "Docker sandbox failed before returning a verified result."
+    if not isinstance(result, SandboxRun):
+        return False, "Docker sandbox returned an invalid result type."
+    if result.policy_verified is not True:
+        return False, "Docker sandbox runtime policy was not verified."
+    if not result.passed:
+        return False, result.detail
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
     except (IndexError, json.JSONDecodeError):
-        return False, "Restricted verification returned an invalid result."
-    return result.get("status") == "passed", "Restricted subprocess tests passed."
+        return False, "Docker sandbox returned an invalid result."
+    if not isinstance(payload, dict) or payload.get("status") != "passed":
+        return False, "Docker sandbox did not report a passing harness result."
+    return True, "Docker sandbox tests passed with verified runtime policy."
 
 
 PAGINATION_HARNESS = r'''
@@ -770,12 +820,14 @@ def verify_migration(
     payload: dict[str, Any] | None = None
     for candidate in _json_candidates(output):
         try:
-            value = json.loads(candidate)
-        except json.JSONDecodeError:
+            value = parse_strict_json_object(
+                candidate,
+                label="migration-plan candidate",
+            )
+        except ValueError:
             continue
-        if isinstance(value, dict):
-            payload = value
-            break
+        payload = value
+        break
     if payload is None:
         return False, "No valid migration-plan JSON object was found."
     phases = payload.get("phases")

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .contracts import ARTIFACT_SCHEMA_VERSION, PACKAGE_ROOT
+from .contracts import (
+    ARTIFACT_SCHEMA_VERSION,
+    PACKAGE_ROOT,
+    load_strict_json_object,
+)
 
 
 PROFILE_PATH = PACKAGE_ROOT / "profiles" / "domain_profiles.json"
@@ -54,7 +57,7 @@ class DomainProfile:
 
 
 def load_profiles(path: Path = PROFILE_PATH) -> dict[str, DomainProfile]:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = load_strict_json_object(path, label="domain profile registry")
     if data.get("schema_version") != ARTIFACT_SCHEMA_VERSION:
         raise ValueError("Domain profile schema version does not match the runtime.")
     raw_profiles = data.get("profiles", [])

@@ -1,11 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/prompt-performance/1.0.0/optimization-artifact.schema.json",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/optimization-artifact.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "package_version",
+    "source_prompt",
     "source_sha256",
     "optimized_prompt",
     "domain",
@@ -16,11 +17,12 @@
     "artifact_payload_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
-    "package_version": {"const": "0.3.0"},
+    "schema_version": {"const": "2.0.0"},
+    "package_version": {"const": "0.4.0"},
+    "source_prompt": {"type": "string", "minLength": 1, "pattern": "\\S"},
     "source_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "optimized_prompt": {"type": "string", "minLength": 1},
-    "domain": {"type": "string", "minLength": 1},
+    "optimized_prompt": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "domain": {"type": "string", "minLength": 1, "pattern": "\\S"},
     "architecture": {
       "enum": [
         "direct",
@@ -52,11 +54,14 @@
               "usage",
               "attempts",
               "elapsed_ms",
-              "status"
+              "status",
+              "purpose",
+              "request_sha256",
+              "response_sha256"
             ],
             "properties": {
-              "provider": {"type": "string", "minLength": 1},
-              "model": {"type": "string", "minLength": 1},
+              "provider": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "model": {"type": "string", "minLength": 1, "pattern": "\\S"},
               "response_id": {"type": ["string", "null"]},
               "usage": {
                 "type": "object",
@@ -64,7 +69,10 @@
               },
               "attempts": {"type": "integer", "minimum": 1},
               "elapsed_ms": {"type": "integer", "minimum": 0},
-              "status": {"type": "string", "minLength": 1}
+              "status": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "purpose": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "request_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "response_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
             }
           }
         },
@@ -98,12 +106,19 @@
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["index", "prompt", "prompt_sha256", "selected"],
+                "required": [
+                  "index",
+                  "strategy",
+                  "strategy_focus",
+                  "prompt",
+                  "prompt_sha256",
+                  "selected"
+                ],
                 "properties": {
                   "index": {"type": "integer", "minimum": 1, "maximum": 5},
-                  "strategy": {"type": "string", "minLength": 1},
-                  "strategy_focus": {"type": "string", "minLength": 1},
-                  "prompt": {"type": "string", "minLength": 1},
+                  "strategy": {"type": "string", "minLength": 1, "pattern": "\\S"},
+                  "strategy_focus": {"type": "string", "minLength": 1, "pattern": "\\S"},
+                  "prompt": {"type": "string", "minLength": 1, "pattern": "\\S"},
                   "prompt_sha256": {
                     "type": "string",
                     "pattern": "^[a-f0-9]{64}$"
@@ -130,10 +145,15 @@
       "additionalProperties": false,
       "required": ["level", "status", "claim", "limitations"],
       "properties": {
-        "level": {"enum": ["E0", "E1", "E2", "E3", "E4", "E5"]},
-        "status": {"enum": ["candidate", "verified_scoped"]},
-        "claim": {"type": "string"},
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "level": {"enum": ["E0", "E1"]},
+        "status": {"const": "candidate"},
+        "claim": {"const": "optimized_candidate"},
+        "limitations": {
+          "const": [
+            "Evidence is valid only for the recorded models, settings, cases, and artifact versions.",
+            "Evidence does not establish universal superiority or award equivalence."
+          ]
+        }
       }
     },
     "artifact_payload_sha256": {
@@ -154,7 +174,7 @@
         "findings"
       ],
       "properties": {
-        "schema_version": {"const": "1.0.0"},
+        "schema_version": {"const": "2.0.0"},
         "text_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "source_sha256": {
           "type": ["string", "null"],

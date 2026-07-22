@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Iterable
 
 from .analysis import VARIABLE_RE
+from .contracts import ARTIFACT_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -128,7 +129,8 @@ HOOK_PATTERNS: tuple[tuple[str, str, str, re.Pattern[str]], ...] = (
         "high",
         "delimiter_escape",
         re.compile(
-            r"(?is)</input_prompt>|<<<\s*INPUT_PROMPT.*?END\s*>>>|"
+            r"(?is)</(?:application_instructions_json|runtime_payload_json)>|"
+            r"</input_prompt>|<<<\s*INPUT_PROMPT.*?END\s*>>>|"
             r"```\s*(system|developer|user)?\s*$"
         ),
     ),
@@ -346,7 +348,7 @@ def audit_prompt(text: str, *, source_prompt: str | None = None) -> AuditReport:
             "Provide a non-empty Prompt.",
         )
         return AuditReport(
-            schema_version="1.0.0",
+            schema_version=ARTIFACT_SCHEMA_VERSION,
             text_sha256=hashlib.sha256(str(text).encode("utf-8")).hexdigest(),
             source_sha256=None,
             passed=False,
@@ -362,7 +364,7 @@ def audit_prompt(text: str, *, source_prompt: str | None = None) -> AuditReport:
         ]
     )
     return AuditReport(
-        schema_version="1.0.0",
+        schema_version=ARTIFACT_SCHEMA_VERSION,
         text_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         source_sha256=(
             hashlib.sha256(source_prompt.encode("utf-8")).hexdigest()

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/visual-review-key.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reviewer_id",
+    "generation_manifest_sha256",
+    "packet_sha256",
+    "protocol",
+    "seed",
+    "items",
+    "key_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "reviewer_id": {"type": "string", "minLength": 1},
+    "generation_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "packet_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "blinding_key", "blinding_key_sha256"],
+      "properties": {
+        "name": {"const": "balanced_hmac_sha256_v2"},
+        "blinding_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "blinding_key_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "seed": {"type": "integer"},
+    "items": {
+      "type": "array",
+      "minItems": 5,
+      "items": {"$ref": "#/$defs/keyItem"}
+    },
+    "key_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "keyItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "optimized_label", "deliveries"],
+      "properties": {
+        "case_id": {"type": "string", "minLength": 1},
+        "optimized_label": {"enum": ["A", "B"]},
+        "deliveries": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {"$ref": "#/$defs/deliveryA"},
+            {"$ref": "#/$defs/deliveryB"}
+          ],
+          "items": false
+        }
+      }
+    },
+    "deliveryA": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "public_path", "source_path", "sha256"],
+      "properties": {
+        "label": {"const": "A"},
+        "public_path": {
+          "type": "string",
+          "pattern": "^review-assets/[0-9a-f]{16}/[0-9a-f]{32}\\.png$"
+        },
+        "source_path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "deliveryB": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "public_path", "source_path", "sha256"],
+      "properties": {
+        "label": {"const": "B"},
+        "public_path": {
+          "type": "string",
+          "pattern": "^review-assets/[0-9a-f]{16}/[0-9a-f]{32}\\.png$"
+        },
+        "source_path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

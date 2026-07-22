@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prompt-performance-engine:schema:frontier:execution-manifest:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "campaign_sha256",
+    "preflight_sha256",
+    "evidence_expires_at",
+    "system_id",
+    "execution_plan_sha256",
+    "execution_authority_receipt_sha256",
+    "attempt_reports",
+    "completed_slot_ids",
+    "budget_ledger",
+    "host_sha256",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "manifest_id": {"$ref": "#/$defs/identifier"},
+    "campaign_sha256": {"$ref": "#/$defs/sha256"},
+    "preflight_sha256": {"$ref": "#/$defs/sha256"},
+    "evidence_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+    },
+    "system_id": {"$ref": "#/$defs/identifier"},
+    "execution_plan_sha256": {"$ref": "#/$defs/sha256"},
+    "execution_authority_receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "attempt_reports": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "urn:prompt-performance-engine:schema:frontier:call-attempt:1.0.0"}
+    },
+    "completed_slot_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "budget_ledger": {"$ref": "#/$defs/budgetLedger"},
+    "host_sha256": {"$ref": "#/$defs/sha256"},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "resource": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "resourceVector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["calls", "input_tokens", "output_tokens", "money_microunits", "wall_clock_ms"],
+      "properties": {
+        "calls": {"$ref": "#/$defs/resource"},
+        "input_tokens": {"$ref": "#/$defs/resource"},
+        "output_tokens": {"$ref": "#/$defs/resource"},
+        "money_microunits": {"$ref": "#/$defs/resource"},
+        "wall_clock_ms": {"$ref": "#/$defs/resource"}
+      }
+    },
+    "budgetEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reservation_id", "status", "reserved", "charged", "receipt_sha256", "over_reserved_axes", "over_ceiling_axes"],
+      "properties": {
+        "reservation_id": {"$ref": "#/$defs/identifier"},
+        "status": {"enum": ["success", "failure", "timeout", "refusal", "quota", "malformed", "cancelled_after_call"]},
+        "reserved": {"$ref": "#/$defs/resourceVector"},
+        "charged": {"$ref": "#/$defs/resourceVector"},
+        "receipt_sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "over_reserved_axes": {"type": "array", "maxItems": 0},
+        "over_ceiling_axes": {"type": "array", "maxItems": 0}
+      }
+    },
+    "budgetLedger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ceilings", "consumed", "active_reserved", "remaining_unreserved", "active_reservations", "events", "pre_call_cancellations", "reservation_rejections", "breached", "ledger_sha256"],
+      "properties": {
+        "ceilings": {"$ref": "#/$defs/resourceVector"},
+        "consumed": {"$ref": "#/$defs/resourceVector"},
+        "active_reserved": {"$ref": "#/$defs/resourceVector"},
+        "remaining_unreserved": {"$ref": "#/$defs/resourceVector"},
+        "active_reservations": {"type": "array", "maxItems": 0},
+        "events": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/budgetEvent"}},
+        "pre_call_cancellations": {"type": "array", "maxItems": 0},
+        "reservation_rejections": {"type": "array", "maxItems": 0},
+        "breached": {"const": false},
+        "ledger_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

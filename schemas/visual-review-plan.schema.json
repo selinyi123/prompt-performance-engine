@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/visual-review-plan.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "generation_manifest",
+    "reviews"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "report_id": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "generation_manifest": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["packet", "key", "submission", "profile"],
+        "properties": {
+          "packet": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "key": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "submission": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "profile": {"type": "string", "minLength": 1, "pattern": "\\S"}
+        }
+      }
+    }
+  }
+}
