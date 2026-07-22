@@ -703,15 +703,22 @@ def write_authority_artifact(
     except FrontierArtifactIOError:
         if created:
             _rollback_owned_publication(target, parent, temp_identity)
+            created = False
         raise
     except OSError:
         if created:
             _rollback_owned_publication(target, parent, temp_identity)
+            created = False
         raise FrontierArtifactIOError(
             "authority artifact could not be published atomically"
         ) from None
     finally:
-        _safe_unlink_owned(temp_path, temp_identity)
+        # Keep one name bound to our staged inode until post-publication
+        # validation finishes.  Otherwise a POSIX filesystem may immediately
+        # reuse the unlinked inode number for a hostile replacement, making a
+        # dev/inode-only rollback mistake the replacement for our publication.
+        if not created:
+            _safe_unlink_owned(temp_path, temp_identity)
 
     # Revalidate containment and bytes after publication.  This cannot make a
     # hostile mutable directory fully safe without platform-specific openat2,
@@ -732,6 +739,8 @@ def write_authority_artifact(
         raise FrontierArtifactIOError(
             "authority artifact could not be revalidated"
         ) from None
+    finally:
+        _safe_unlink_owned(temp_path, temp_identity)
     return AuthorityArtifactWrite(
         relative_path=relative.as_posix(),
         content_sha256=digest,

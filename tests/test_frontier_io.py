@@ -374,6 +374,12 @@ class AuthorityFileIOTests(unittest.TestCase):
                 nonlocal calls
                 calls += 1
                 if calls == 2:
+                    staged = list(root.glob(".frontier-artifact-*.tmp"))
+                    self.assertEqual(len(staged), 1)
+                    self.assertEqual(
+                        frontier_io._identity(staged[0].lstat()),
+                        frontier_io._identity(target.lstat()),
+                    )
                     target.unlink()
                     target.write_bytes(replacement)
                     raise ArtifactPathError("sanitized revalidation failure")
@@ -387,6 +393,7 @@ class AuthorityFileIOTests(unittest.TestCase):
                     write_authority_artifact(root, "report.json", {"owned": True})
 
             self.assertEqual(target.read_bytes(), replacement)
+            self.assertEqual(list(root.glob(".frontier-artifact-*.tmp")), [])
 
     def test_byte_limit_is_enforced_for_write_and_read(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
