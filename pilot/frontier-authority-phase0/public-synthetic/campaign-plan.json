@@ -1,0 +1,7 @@
+{
+  "authority_bearing": false,
+  "contains_authority_receipts": false,
+  "contains_sealed_benchmark": false,
+  "fixture_kind": "public_synthetic_placeholder",
+  "purpose": "Verify fail-closed frontier preflight and execution before real authority inputs."
+}
