@@ -3,14 +3,308 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal
 from typing import Any, Protocol, Sequence
 
+from .contracts import ARTIFACT_SCHEMA_VERSION
 from .evidence import Evidence, infer_evidence
 from .case_checks import run_case_checks
 from .domain_checks import run_domain_checks
 from .hashing import hash_payload, sha256_json
+from .software_sandbox import DockerSandbox
+
+
+SCHEMA_VERSION = ARTIFACT_SCHEMA_VERSION
+EVALUATION_FIELDS = {
+    "schema_version",
+    "suite_id",
+    "case_count",
+    "wins",
+    "ties",
+    "losses",
+    "critical_regressions",
+    "fatal_flaws",
+    "optimized_hard_failures",
+    "gate_passed",
+    "repeated_or_cross_model",
+    "evidence",
+    "records",
+    "evaluation_sha256",
+}
+EVIDENCE_FIELDS = {"level", "status", "claim", "limitations"}
+RECORD_FIELDS = {
+    "schema_version",
+    "case_id",
+    "domain",
+    "difficulty",
+    "rubric",
+    "case_sha256",
+    "executor",
+    "execution_config",
+    "original_prompt_sha256",
+    "optimized_prompt_sha256",
+    "original_output",
+    "optimized_output",
+    "execution_metadata",
+    "original_output_sha256",
+    "optimized_output_sha256",
+    "blind_map",
+    "hard_checks",
+    "judge_decisions",
+    "outcome",
+    "critical_regression",
+    "fatal_flaw",
+    "record_sha256",
+}
+JUDGE_DECISION_FIELDS = {
+    "judge",
+    "winner",
+    "reason",
+    "fatal_flaw_a",
+    "fatal_flaw_b",
+    "metadata",
+}
+RECORDED_RUN_FIELDS = frozenset(
+    {
+        "schema_version",
+        "suite_id",
+        "job_id",
+        "blind_seed",
+        "execution_config",
+        "outputs",
+        "judges",
+    }
+)
+RECORDED_RUN_REQUIRED_FIELDS = RECORDED_RUN_FIELDS - {"blind_seed"}
+RECORDED_EXECUTION_CONFIG_FIELDS = frozenset(
+    {"model", "temperature", "max_tokens", "seed"}
+)
+RECORDED_OUTPUT_FIELDS = frozenset({"case_id", "original", "optimized"})
+RECORDED_JUDGE_FIELDS = frozenset({"name", "decisions"})
+RECORDED_DECISION_FIELDS = frozenset(
+    {"winner", "reason", "fatal_flaw_a", "fatal_flaw_b"}
+)
+
+
+def _require_exact_fields(
+    value: dict[str, Any],
+    expected: set[str],
+    *,
+    label: str,
+    failures: list[str],
+) -> None:
+    if set(value) != expected:
+        failures.append(f"{label} fields do not match the contract")
+
+
+def _require_recorded_fields(
+    value: Any,
+    *,
+    allowed: frozenset[str],
+    required: frozenset[str],
+    label: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be an object.")
+    names = set(value)
+    missing = sorted(required - names)
+    unknown = sorted(names - allowed, key=str)
+    if missing or unknown:
+        details: list[str] = []
+        if missing:
+            details.append("missing " + ", ".join(missing))
+        if unknown:
+            details.append("unknown " + ", ".join(map(str, unknown)))
+        raise ValueError(
+            f"{label} fields do not match the contract ({'; '.join(details)})."
+        )
+    return value
+
+
+def _normalized_json_integer(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and math.isfinite(value) and value.is_integer():
+        return int(value)
+    if isinstance(value, Decimal) and value.is_finite() and value == value.to_integral():
+        return int(value)
+    return None
+
+
+def _is_finite_json_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+        return False
+    if isinstance(value, Decimal):
+        return value.is_finite()
+    return not isinstance(value, float) or math.isfinite(value)
+
+
+def validate_recorded_run_input(
+    run: Any,
+    *,
+    suite_id: str,
+    job_id: str,
+    case_ids: Sequence[str],
+) -> dict[str, Any]:
+    """Validate and normalize one recorded-run transport for its benchmark job."""
+
+    root = dict(
+        _require_recorded_fields(
+            run,
+            allowed=RECORDED_RUN_FIELDS,
+            required=RECORDED_RUN_REQUIRED_FIELDS,
+            label="recorded run",
+        )
+    )
+    if root.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError(f"recorded run schema_version must be {SCHEMA_VERSION!r}.")
+    if root.get("suite_id") != suite_id:
+        raise ValueError("Recorded run does not match the benchmark suite.")
+    if root.get("job_id") != job_id:
+        raise ValueError("Recorded run does not match the benchmark job.")
+    if "blind_seed" in root:
+        blind_seed = _normalized_json_integer(root["blind_seed"])
+        if blind_seed is None:
+            raise ValueError("recorded run blind_seed must be an integer.")
+        root["blind_seed"] = blind_seed
+
+    config = dict(
+        _require_recorded_fields(
+            root.get("execution_config"),
+            allowed=RECORDED_EXECUTION_CONFIG_FIELDS,
+            required=frozenset({"model"}),
+            label="recorded run execution_config",
+        )
+    )
+    model = config.get("model")
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("recorded run execution_config.model must be non-empty.")
+    if "temperature" in config and not _is_finite_json_number(
+        config["temperature"]
+    ):
+        raise ValueError(
+            "recorded run execution_config.temperature must be a finite number."
+        )
+    if isinstance(config.get("temperature"), Decimal):
+        temperature = float(config["temperature"])
+        if not math.isfinite(temperature):
+            raise ValueError(
+                "recorded run execution_config.temperature is outside the "
+                "supported runtime range."
+            )
+        config["temperature"] = temperature
+    if "max_tokens" in config:
+        max_tokens = _normalized_json_integer(config["max_tokens"])
+        if max_tokens is None or max_tokens < 1:
+            raise ValueError(
+                "recorded run execution_config.max_tokens must be a positive integer."
+            )
+        config["max_tokens"] = max_tokens
+    if "seed" in config and config["seed"] is not None:
+        seed = _normalized_json_integer(config["seed"])
+        if seed is None:
+            raise ValueError(
+                "recorded run execution_config.seed must be an integer or null."
+            )
+        config["seed"] = seed
+    root["execution_config"] = config
+
+    expected_case_ids = list(case_ids)
+    if (
+        not expected_case_ids
+        or any(not isinstance(case_id, str) or not case_id for case_id in expected_case_ids)
+        or len(expected_case_ids) != len(set(expected_case_ids))
+    ):
+        raise ValueError("Benchmark job case ids must be non-empty and unique.")
+    outputs = root.get("outputs")
+    if not isinstance(outputs, list):
+        raise ValueError("recorded run outputs must be an array.")
+    if len(outputs) != len(expected_case_ids):
+        raise ValueError("recorded run must contain exactly one output per case.")
+    observed_case_ids: list[str] = []
+    for index, raw_output in enumerate(outputs):
+        output = _require_recorded_fields(
+            raw_output,
+            allowed=RECORDED_OUTPUT_FIELDS,
+            required=RECORDED_OUTPUT_FIELDS,
+            label=f"recorded run outputs[{index}]",
+        )
+        case_id = output.get("case_id")
+        if not isinstance(case_id, str) or not case_id:
+            raise ValueError(f"recorded run outputs[{index}].case_id must be non-empty.")
+        for side in ("original", "optimized"):
+            text = output.get(side)
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError(
+                    f"recorded run outputs[{index}].{side} must be non-empty text."
+                )
+        observed_case_ids.append(case_id)
+    if len(observed_case_ids) != len(set(observed_case_ids)):
+        raise ValueError("recorded run output case_id values must be unique.")
+    missing_cases = sorted(set(expected_case_ids) - set(observed_case_ids))
+    unknown_cases = sorted(set(observed_case_ids) - set(expected_case_ids))
+    if missing_cases or unknown_cases:
+        raise ValueError(
+            "recorded run output case_id set is incomplete or unknown "
+            f"(missing={missing_cases}, unknown={unknown_cases})."
+        )
+
+    judges = root.get("judges")
+    if not isinstance(judges, list) or len(judges) < 2:
+        raise ValueError("recorded run must contain at least two judges.")
+    judge_names: list[str] = []
+    decision_counts: list[int] = []
+    for judge_index, raw_judge in enumerate(judges):
+        judge = _require_recorded_fields(
+            raw_judge,
+            allowed=RECORDED_JUDGE_FIELDS,
+            required=RECORDED_JUDGE_FIELDS,
+            label=f"recorded run judges[{judge_index}]",
+        )
+        name = judge.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(
+                f"recorded run judges[{judge_index}].name must be non-empty."
+            )
+        judge_names.append(name)
+        decisions = judge.get("decisions")
+        if not isinstance(decisions, list):
+            raise ValueError(
+                f"recorded run judges[{judge_index}].decisions must be an array."
+            )
+        if len(decisions) > len(expected_case_ids):
+            raise ValueError("recorded judge decisions exceed the benchmark case count.")
+        decision_counts.append(len(decisions))
+        for decision_index, raw_decision in enumerate(decisions):
+            label = (
+                f"recorded run judges[{judge_index}].decisions[{decision_index}]"
+            )
+            decision = _require_recorded_fields(
+                raw_decision,
+                allowed=RECORDED_DECISION_FIELDS,
+                required=RECORDED_DECISION_FIELDS,
+                label=label,
+            )
+            winner = decision.get("winner")
+            if not isinstance(winner, str) or winner not in {"A", "B", "tie"}:
+                raise ValueError(f"{label}.winner is invalid.")
+            reason = decision.get("reason")
+            if not isinstance(reason, str) or not reason.strip():
+                raise ValueError(f"{label}.reason must be non-empty.")
+            if not isinstance(decision.get("fatal_flaw_a"), bool) or not isinstance(
+                decision.get("fatal_flaw_b"), bool
+            ):
+                raise ValueError(f"{label} fatal-flaw fields must be booleans.")
+    if len(judge_names) != len(set(judge_names)):
+        raise ValueError("recorded run judge names must be unique.")
+    if len(set(decision_counts)) != 1:
+        raise ValueError("recorded run judges must provide equal decision counts.")
+    return root
 
 
 @dataclass(frozen=True)
@@ -21,10 +315,25 @@ class ExecutionConfig:
     seed: int | None = 0
 
     def __post_init__(self) -> None:
-        if not self.model.strip():
+        if not isinstance(self.model, str) or not self.model.strip():
             raise ValueError("Execution model must not be empty.")
-        if self.max_tokens is not None and self.max_tokens < 1:
-            raise ValueError("max_tokens must be positive when specified.")
+        if self.temperature is not None:
+            if not _is_finite_json_number(self.temperature):
+                raise ValueError("temperature must be finite when specified.")
+            normalized_temperature = float(self.temperature)
+            if not math.isfinite(normalized_temperature):
+                raise ValueError("temperature is outside the supported runtime range.")
+            object.__setattr__(self, "temperature", normalized_temperature)
+        if self.max_tokens is not None:
+            normalized_max_tokens = _normalized_json_integer(self.max_tokens)
+            if normalized_max_tokens is None or normalized_max_tokens < 1:
+                raise ValueError("max_tokens must be positive when specified.")
+            object.__setattr__(self, "max_tokens", normalized_max_tokens)
+        if self.seed is not None:
+            normalized_seed = _normalized_json_integer(self.seed)
+            if normalized_seed is None:
+                raise ValueError("seed must be an integer when specified.")
+            object.__setattr__(self, "seed", normalized_seed)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -82,10 +391,17 @@ class JudgeDecision:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
-        if self.winner not in {"A", "B", "tie"}:
+        if not isinstance(self.winner, str) or self.winner not in {"A", "B", "tie"}:
             raise ValueError(f"Unknown judge winner: {self.winner!r}.")
-        if not self.reason.strip():
-            raise ValueError("Judge reason must not be empty.")
+        if not isinstance(self.reason, str) or not self.reason.strip():
+            raise ValueError("Judge reason must be a non-empty string.")
+        if not isinstance(self.fatal_flaw_a, bool) or not isinstance(
+            self.fatal_flaw_b,
+            bool,
+        ):
+            raise ValueError("Judge fatal-flaw fields must be JSON booleans.")
+        if not isinstance(self.metadata, dict):
+            raise ValueError("Judge metadata must be an object.")
 
 
 class BlindJudge(Protocol):
@@ -228,7 +544,12 @@ def _contains_unnegated_forbidden(output: str, forbidden: str) -> bool:
         return True
 
 
-def _hard_checks(case: EvaluationCase, output: str) -> dict[str, Any]:
+def _hard_checks(
+    case: EvaluationCase,
+    output: str,
+    *,
+    software_sandbox: DockerSandbox | None = None,
+) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     for required in case.required_substrings:
         checks.append(
@@ -268,7 +589,13 @@ def _hard_checks(case: EvaluationCase, output: str) -> dict[str, Any]:
             }
         )
     checks.extend(run_domain_checks(case.domain, case.input_text, output))
-    checks.extend(run_case_checks(case.case_id, output))
+    checks.extend(
+        run_case_checks(
+            case.case_id,
+            output,
+            sandbox=software_sandbox,
+        )
+    )
     return {
         "passed": all(
             check["passed"]
@@ -333,6 +660,7 @@ def evaluate_case(
     judges: Sequence[BlindJudge],
     config: ExecutionConfig,
     blind_seed: int = 0,
+    software_sandbox: DockerSandbox | None = None,
 ) -> dict[str, Any]:
     case.validate()
     if len(judges) < 2:
@@ -354,20 +682,25 @@ def evaluate_case(
     )
     original_output = original_execution.text
     optimized_output = optimized_execution.text
-    original_checks = _hard_checks(case, original_output)
-    optimized_checks = _hard_checks(case, optimized_output)
+    original_checks = _hard_checks(
+        case,
+        original_output,
+        software_sandbox=software_sandbox,
+    )
+    optimized_checks = _hard_checks(
+        case,
+        optimized_output,
+        software_sandbox=software_sandbox,
+    )
     optimized_is_a = _optimized_is_a(case.case_id, blind_seed)
     output_a = optimized_output if optimized_is_a else original_output
     output_b = original_output if optimized_is_a else optimized_output
 
     critical_regression = original_checks["passed"] and not optimized_checks["passed"]
-    deterministic_win = optimized_checks["passed"] and not original_checks["passed"]
     judge_records: list[dict[str, Any]] = []
     fatal_flaw = False
     if critical_regression:
         outcome = "loss"
-    elif deterministic_win:
-        outcome = "win"
     elif not original_checks["passed"] and not optimized_checks["passed"]:
         outcome = "tie"
     else:
@@ -392,7 +725,7 @@ def evaluate_case(
         )
 
     record: dict[str, Any] = {
-        "schema_version": "1.0.0",
+        "schema_version": SCHEMA_VERSION,
         "case_id": case.case_id,
         "domain": case.domain,
         "difficulty": case.difficulty,
@@ -447,6 +780,7 @@ def evaluate_suite(
     config: ExecutionConfig,
     blind_seed: int = 0,
     repeated_or_cross_model: bool = False,
+    software_sandbox: DockerSandbox | None = None,
 ) -> dict[str, Any]:
     if not suite_id.strip():
         raise ValueError("suite_id must not be empty.")
@@ -461,6 +795,7 @@ def evaluate_suite(
             judges=judges,
             config=config,
             blind_seed=blind_seed,
+            software_sandbox=software_sandbox,
         )
         for case in cases
     ]
@@ -484,10 +819,9 @@ def evaluate_suite(
         deterministic_checks_passed=True,
         matched_cases=len(records),
         comparative_improvement_passed=gate_passed,
-        repeated_or_cross_model=repeated_or_cross_model,
     )
     result: dict[str, Any] = {
-        "schema_version": "1.0.0",
+        "schema_version": SCHEMA_VERSION,
         "suite_id": suite_id,
         "case_count": len(records),
         "wins": wins,
@@ -497,7 +831,10 @@ def evaluate_suite(
         "fatal_flaws": fatal_flaws,
         "optimized_hard_failures": optimized_hard_failures,
         "gate_passed": gate_passed,
-        "repeated_or_cross_model": repeated_or_cross_model,
+        # Kept in the wire contract for compatibility.  A suite evaluation is
+        # always one run and cannot authoritatively claim repetition; callers
+        # must use a validated benchmark replicate report to obtain E3.
+        "repeated_or_cross_model": False,
         "evidence": asdict(evidence),
         "records": records,
     }
@@ -505,15 +842,39 @@ def evaluate_suite(
     return result
 
 
-def validate_evaluation(result: Any) -> list[str]:
+def _validate_evaluation(result: Any) -> list[str]:
     if not isinstance(result, dict):
         return ["evaluation root must be an object"]
     failures: list[str] = []
+    _require_exact_fields(
+        result,
+        EVALUATION_FIELDS,
+        label="evaluation",
+        failures=failures,
+    )
+    if result.get("schema_version") != SCHEMA_VERSION:
+        failures.append("unsupported evaluation schema")
+    if not isinstance(result.get("suite_id"), str) or not result["suite_id"]:
+        failures.append("evaluation suite_id must be a non-empty string")
     if result.get("evaluation_sha256") != hash_payload(
         result,
         "evaluation_sha256",
     ):
         failures.append("evaluation hash mismatch")
+    for field in (
+        "case_count",
+        "wins",
+        "ties",
+        "losses",
+        "critical_regressions",
+        "fatal_flaws",
+        "optimized_hard_failures",
+    ):
+        count = _normalized_json_integer(result.get(field))
+        if count is None or count < 0:
+            failures.append(f"evaluation {field} must be a non-negative integer")
+    if not isinstance(result.get("gate_passed"), bool):
+        failures.append("evaluation gate_passed must be a boolean")
     records = result.get("records")
     if not isinstance(records, list) or not records:
         return [*failures, "evaluation records must be a non-empty list"]
@@ -526,15 +887,106 @@ def validate_evaluation(result: Any) -> list[str]:
     original_prompts: set[str] = set()
     optimized_prompts: set[str] = set()
     case_ids: set[str] = set()
+
+    def hard_group_passed(case_id: Any, label: str, value: Any) -> bool | None:
+        if not isinstance(value, dict):
+            failures.append(f"{case_id}: {label} hard checks must be an object")
+            return None
+        _require_exact_fields(
+            value,
+            {"passed", "checks"},
+            label=f"{case_id}: {label} hard-check group",
+            failures=failures,
+        )
+        checks = value.get("checks")
+        if not isinstance(checks, list):
+            failures.append(f"{case_id}: {label} hard checks must be an array")
+            return None
+        authoritative_results: list[bool] = []
+        for check in checks:
+            if not isinstance(check, dict) or not isinstance(check.get("passed"), bool):
+                failures.append(f"{case_id}: {label} hard check is invalid")
+                return None
+            check_name = check.get("check")
+            if not isinstance(check_name, str) or not check_name:
+                failures.append(f"{case_id}: {label} hard-check name is invalid")
+                return None
+            if check_name in {"required_substring", "forbidden_substring"}:
+                expected_fields = {"check", "value", "passed"}
+            elif check_name == "valid_json":
+                expected_fields = {"check", "passed"}
+            elif check_name == "max_characters":
+                expected_fields = {"check", "value", "observed", "passed"}
+            else:
+                expected_fields = {
+                    "check",
+                    "passed",
+                    "detail",
+                    "authoritative",
+                    "source",
+                }
+            _require_exact_fields(
+                check,
+                expected_fields,
+                label=f"{case_id}: {label} hard check",
+                failures=failures,
+            )
+            authoritative = check.get("authoritative", True)
+            if not isinstance(authoritative, bool):
+                failures.append(
+                    f"{case_id}: {label} hard-check authority flag is invalid"
+                )
+                return None
+            if authoritative:
+                authoritative_results.append(check["passed"])
+        expected = all(authoritative_results)
+        if not isinstance(value.get("passed"), bool) or value["passed"] != expected:
+            failures.append(f"{case_id}: {label} hard-check result mismatch")
+        return expected
+
     for record in records:
         if not isinstance(record, dict):
             failures.append("evaluation record must be an object")
             continue
+        _require_exact_fields(
+            record,
+            RECORD_FIELDS,
+            label="evaluation record",
+            failures=failures,
+        )
         case_id = record.get("case_id")
-        if not isinstance(case_id, str) or case_id in case_ids:
+        if not isinstance(case_id, str) or not case_id or case_id in case_ids:
             failures.append(f"duplicate or invalid case id: {case_id!r}")
         else:
             case_ids.add(case_id)
+        if record.get("schema_version") != SCHEMA_VERSION:
+            failures.append(f"{case_id}: unsupported record schema")
+        if not isinstance(record.get("domain"), str) or not record["domain"]:
+            failures.append(f"{case_id}: domain must be a non-empty string")
+        difficulty = record.get("difficulty")
+        if not isinstance(difficulty, str) or difficulty not in {
+            "normal",
+            "difficult",
+            "adversarial",
+        }:
+            failures.append(f"{case_id}: difficulty is invalid")
+        rubric = record.get("rubric")
+        if not isinstance(rubric, list) or not rubric or any(
+            not isinstance(item, str) or not item for item in rubric
+        ):
+            failures.append(f"{case_id}: rubric is invalid")
+        if not isinstance(record.get("executor"), str) or not record["executor"]:
+            failures.append(f"{case_id}: executor must be a non-empty string")
+        for field in (
+            "case_sha256",
+            "original_prompt_sha256",
+            "optimized_prompt_sha256",
+        ):
+            digest = record.get(field)
+            if not isinstance(digest, str) or re.fullmatch(
+                r"[0-9a-f]{64}", digest
+            ) is None:
+                failures.append(f"{case_id}: invalid hash field: {field}")
         if record.get("record_sha256") != hash_payload(record, "record_sha256"):
             failures.append(f"{case_id}: record hash mismatch")
         original_output = record.get("original_output")
@@ -547,15 +999,73 @@ def validate_evaluation(result: Any) -> list[str]:
             optimized_output.encode("utf-8")
         ).hexdigest() != record.get("optimized_output_sha256"):
             failures.append(f"{case_id}: optimized output hash mismatch")
-        configs.add(sha256_json(record.get("execution_config")))
+        execution_config = record.get("execution_config")
+        if not isinstance(execution_config, dict):
+            failures.append(f"{case_id}: execution config must be an object")
+        else:
+            _require_exact_fields(
+                execution_config,
+                {"model", "temperature", "max_tokens", "seed"},
+                label=f"{case_id}: execution config",
+                failures=failures,
+            )
+            model = execution_config.get("model")
+            if not isinstance(model, str) or not model.strip():
+                failures.append(
+                    f"{case_id}: execution config model must be a non-empty string"
+                )
+            temperature = execution_config.get("temperature")
+            if temperature is not None and not _is_finite_json_number(temperature):
+                failures.append(
+                    f"{case_id}: execution config temperature must be a finite "
+                    "number or null"
+                )
+            max_tokens = execution_config.get("max_tokens")
+            normalized_max_tokens = (
+                None
+                if max_tokens is None
+                else _normalized_json_integer(max_tokens)
+            )
+            if max_tokens is not None and (
+                normalized_max_tokens is None or normalized_max_tokens < 1
+            ):
+                failures.append(
+                    f"{case_id}: execution config max_tokens must be a positive "
+                    "integer or null"
+                )
+            seed = execution_config.get("seed")
+            if seed is not None and _normalized_json_integer(seed) is None:
+                failures.append(
+                    f"{case_id}: execution config seed must be an integer or null"
+                )
+        execution_metadata = record.get("execution_metadata")
+        if not isinstance(execution_metadata, dict):
+            failures.append(f"{case_id}: execution metadata must be an object")
+        else:
+            _require_exact_fields(
+                execution_metadata,
+                {"original", "optimized"},
+                label=f"{case_id}: execution metadata",
+                failures=failures,
+            )
+            if any(
+                not isinstance(execution_metadata.get(side), dict)
+                for side in ("original", "optimized")
+            ):
+                failures.append(f"{case_id}: execution metadata entry is invalid")
+        configs.add(sha256_json(execution_config))
         original_prompts.add(str(record.get("original_prompt_sha256")))
         optimized_prompts.add(str(record.get("optimized_prompt_sha256")))
 
         outcome = record.get("outcome")
-        if outcome not in {"win", "tie", "loss"}:
+        if not isinstance(outcome, str) or outcome not in {"win", "tie", "loss"}:
             failures.append(f"{case_id}: invalid outcome")
         else:
             outcomes.append(outcome)
+        if not isinstance(record.get("critical_regression"), bool):
+            failures.append(f"{case_id}: critical regression must be a boolean")
+        if not isinstance(record.get("fatal_flaw"), bool):
+            failures.append(f"{case_id}: fatal flaw must be a boolean")
         critical = record.get("critical_regression") is True
         fatal = record.get("fatal_flaw") is True
         critical_count += critical
@@ -564,17 +1074,108 @@ def validate_evaluation(result: Any) -> list[str]:
         if not isinstance(hard_checks, dict):
             failures.append(f"{case_id}: hard checks must be an object")
             optimized_hard_failure_count += 1
+            original_passed = None
+            optimized_passed = None
         else:
-            optimized_checks = hard_checks.get("optimized")
-            if (
-                not isinstance(optimized_checks, dict)
-                or optimized_checks.get("passed") is not True
-            ):
+            _require_exact_fields(
+                hard_checks,
+                {"original", "optimized"},
+                label=f"{case_id}: hard checks",
+                failures=failures,
+            )
+            original_passed = hard_group_passed(
+                case_id,
+                "original",
+                hard_checks.get("original"),
+            )
+            optimized_passed = hard_group_passed(
+                case_id,
+                "optimized",
+                hard_checks.get("optimized"),
+            )
+            if optimized_passed is not True:
                 optimized_hard_failure_count += 1
-        if critical and outcome != "loss":
-            failures.append(f"{case_id}: critical regression must be a loss")
-        if fatal and outcome != "loss":
-            failures.append(f"{case_id}: fatal flaw must be a loss")
+        blind_map = record.get("blind_map")
+        blind_a = blind_map.get("A") if isinstance(blind_map, dict) else None
+        blind_b = blind_map.get("B") if isinstance(blind_map, dict) else None
+        blind_valid = (
+            isinstance(blind_map, dict)
+            and isinstance(blind_map.get("seed"), int)
+            and not isinstance(blind_map.get("seed"), bool)
+            and isinstance(blind_a, str)
+            and isinstance(blind_b, str)
+            and {blind_a, blind_b} == {
+                "original",
+                "optimized",
+            }
+        )
+        optimized_is_a = False
+        if not blind_valid:
+            failures.append(f"{case_id}: blind map is invalid")
+        else:
+            optimized_is_a = _optimized_is_a(case_id, blind_map["seed"])
+            expected_map = {
+                "A": "optimized" if optimized_is_a else "original",
+                "B": "original" if optimized_is_a else "optimized",
+                "seed": blind_map["seed"],
+            }
+            if blind_map != expected_map:
+                failures.append(f"{case_id}: blind map does not match its seed")
+                blind_valid = False
+        judge_data = record.get("judge_decisions")
+        decisions: list[JudgeDecision] = []
+        judges_valid = isinstance(judge_data, list)
+        if not judges_valid:
+            failures.append(f"{case_id}: judge decisions must be an array")
+        else:
+            for item in judge_data:
+                if not isinstance(item, dict) or not isinstance(
+                    item.get("judge"), str
+                ) or not item.get("judge"):
+                    failures.append(f"{case_id}: judge decision is invalid")
+                    judges_valid = False
+                    continue
+                _require_exact_fields(
+                    item,
+                    JUDGE_DECISION_FIELDS,
+                    label=f"{case_id}: judge decision",
+                    failures=failures,
+                )
+                try:
+                    decision = JudgeDecision(
+                        winner=item.get("winner"),
+                        reason=item.get("reason"),
+                        fatal_flaw_a=item.get("fatal_flaw_a"),
+                        fatal_flaw_b=item.get("fatal_flaw_b"),
+                        metadata=item.get("metadata"),
+                    )
+                    decision.validate()
+                    decisions.append(decision)
+                except (TypeError, ValueError) as exc:
+                    failures.append(f"{case_id}: invalid judge decision: {exc}")
+                    judges_valid = False
+        if original_passed is not None and optimized_passed is not None:
+            expected_critical = original_passed and not optimized_passed
+            expected_fatal = False
+            expected_outcome: str | None
+            if expected_critical:
+                expected_outcome = "loss"
+            elif not original_passed and not optimized_passed:
+                expected_outcome = "tie"
+            elif blind_valid and judges_valid and len(decisions) >= 2:
+                expected_outcome, expected_fatal = _aggregate_judges(
+                    decisions,
+                    optimized_is_a=optimized_is_a,
+                )
+            else:
+                expected_outcome = None
+                failures.append(f"{case_id}: matched outputs require two blind judges")
+            if record.get("critical_regression") is not expected_critical:
+                failures.append(f"{case_id}: critical regression is not derived")
+            if expected_outcome is not None and outcome != expected_outcome:
+                failures.append(f"{case_id}: outcome does not match authoritative facts")
+            if record.get("fatal_flaw") is not expected_fatal:
+                failures.append(f"{case_id}: fatal flaw is not derived")
 
     if len(configs) != 1:
         failures.append("execution settings are not matched across records")
@@ -608,6 +1209,12 @@ def validate_evaluation(result: Any) -> list[str]:
     if not isinstance(evidence_data, dict):
         failures.append("evaluation evidence must be an object")
     else:
+        _require_exact_fields(
+            evidence_data,
+            EVIDENCE_FIELDS,
+            label="evaluation evidence",
+            failures=failures,
+        )
         try:
             evidence = Evidence(
                 level=evidence_data.get("level", ""),
@@ -620,12 +1227,28 @@ def validate_evaluation(result: Any) -> list[str]:
                 deterministic_checks_passed=True,
                 matched_cases=len(records),
                 comparative_improvement_passed=expected_gate,
-                repeated_or_cross_model=(
-                    result.get("repeated_or_cross_model") is True
-                ),
             )
             if evidence != expected_evidence:
                 failures.append("evaluation evidence does not match aggregate gate")
         except (TypeError, ValueError) as exc:
             failures.append(f"invalid evaluation evidence: {exc}")
+    if result.get("repeated_or_cross_model") is not False:
+        failures.append("a suite evaluation cannot claim repeated-run authority")
     return failures
+
+
+def validate_evaluation(result: Any) -> list[str]:
+    """Validate untrusted evaluation input without leaking structural errors."""
+
+    try:
+        return _validate_evaluation(result)
+    except (
+        ArithmeticError,
+        AttributeError,
+        KeyError,
+        RecursionError,
+        TypeError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        return [f"malformed evaluation: {exc}"]

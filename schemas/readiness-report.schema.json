@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/prompt-performance/1.0.0/readiness-report.schema.json",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/readiness-report.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,18 +11,23 @@
     "passed_requirement_count",
     "requirement_count",
     "completion_ratio",
+    "source_manifest_sha256",
     "requirements",
     "evidence_errors",
     "readiness_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
     "status": {"enum": ["complete", "incomplete"]},
     "claim_ceiling": {"enum": ["stable_v1", "optimized_candidate"]},
     "completion_metric": {"const": "unweighted mandatory gate ratio"},
     "passed_requirement_count": {"type": "integer", "minimum": 0, "maximum": 10},
     "requirement_count": {"const": 10},
     "completion_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+    "source_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "requirements": {
       "type": "array",
       "minItems": 10,

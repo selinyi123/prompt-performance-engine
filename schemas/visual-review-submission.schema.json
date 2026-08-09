@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/prompt-performance/1.0.0/visual-review-submission.schema.json",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/visual-review-submission.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,7 +11,7 @@
     "submission_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
     "reviewer_id": {"type": "string", "minLength": 1},
     "packet_sha256": {
       "type": "string",
@@ -28,13 +28,29 @@
           "case_id": {"type": "string", "minLength": 1},
           "winner": {"enum": ["A", "B", "tie"]},
           "reason": {"type": "string", "minLength": 20},
-          "scores": {"type": "object", "minProperties": 3}
+          "scores": {
+            "type": "object",
+            "minProperties": 3,
+            "propertyNames": {"type": "string", "minLength": 1},
+            "additionalProperties": {"$ref": "#/$defs/scorePair"}
+          }
         }
       }
     },
     "submission_sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "scorePair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["A", "B"],
+      "properties": {
+        "A": {"type": "integer", "minimum": 1, "maximum": 5},
+        "B": {"type": "integer", "minimum": 1, "maximum": 5}
+      }
     }
   }
 }

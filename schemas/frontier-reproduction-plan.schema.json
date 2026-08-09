@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prompt-performance-engine:schema:frontier:reproduction-plan:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "campaign_id",
+    "report_id",
+    "reproduction_group_id",
+    "required_operator_count",
+    "report_input_path",
+    "expected_report_path",
+    "expected_report_file_sha256",
+    "expected_report_sha256",
+    "expected_report_canonical_sha256",
+    "claim_inventory_path",
+    "claim_inventory_file_sha256",
+    "claim_inventory_sha256",
+    "artifacts",
+    "source_artifacts_sha256",
+    "input_commitments_sha256",
+    "environment",
+    "environment_sha256",
+    "reproduction_operators",
+    "operator",
+    "plan_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "plan_id": {"$ref": "#/$defs/identifier"},
+    "campaign_id": {"$ref": "#/$defs/identifier"},
+    "report_id": {"$ref": "#/$defs/identifier"},
+    "reproduction_group_id": {"$ref": "#/$defs/identifier"},
+    "required_operator_count": {"const": 3},
+    "report_input_path": {"$ref": "#/$defs/relativePath"},
+    "expected_report_path": {"$ref": "#/$defs/relativePath"},
+    "expected_report_file_sha256": {"$ref": "#/$defs/sha256"},
+    "expected_report_sha256": {"$ref": "#/$defs/sha256"},
+    "expected_report_canonical_sha256": {"$ref": "#/$defs/sha256"},
+    "claim_inventory_path": {"$ref": "#/$defs/relativePath"},
+    "claim_inventory_file_sha256": {"$ref": "#/$defs/sha256"},
+    "claim_inventory_sha256": {"$ref": "#/$defs/sha256"},
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/artifact"}
+    },
+    "source_artifacts_sha256": {"$ref": "#/$defs/sha256"},
+    "input_commitments_sha256": {"$ref": "#/$defs/sha256"},
+    "environment": {"$ref": "#/$defs/environment"},
+    "environment_sha256": {"$ref": "#/$defs/sha256"},
+    "reproduction_operators": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/operator"}
+    },
+    "operator": {"$ref": "#/$defs/operator"},
+    "plan_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\s]+$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*:)(?!.*\\\\)(?!.*//)(?!\\.{1,2}(?:/|$))(?!.*[/]\\.{1,2}(?:/|$))\\S(?:.*\\S)?$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_kind", "path", "content_sha256"],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/identifier"},
+        "artifact_kind": {
+          "enum": [
+            "frontier_report_input",
+            "campaign_plan",
+            "release_policy",
+            "source_commitment",
+            "frontier_preflight_report",
+            "execution_bundle",
+            "judgment_manifest",
+            "human_gold",
+            "software_r05",
+            "visual_r06",
+            "statistics",
+            "safety",
+            "robustness",
+            "efficiency",
+            "independence",
+            "external_reproduction",
+            "defect_register",
+            "stable_readiness_report"
+          ]
+        },
+        "path": {"$ref": "#/$defs/relativePath"},
+        "content_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os_name",
+        "architecture",
+        "python_implementation",
+        "python_version",
+        "package_version",
+        "package_sha256",
+        "analysis_implementation_sha256",
+        "dependency_lock_sha256",
+        "container_image_digest",
+        "replay_command_sha256"
+      ],
+      "properties": {
+        "os_name": {"$ref": "#/$defs/identifier"},
+        "architecture": {"$ref": "#/$defs/identifier"},
+        "python_implementation": {"$ref": "#/$defs/identifier"},
+        "python_version": {"$ref": "#/$defs/identifier"},
+        "package_version": {"$ref": "#/$defs/identifier"},
+        "package_sha256": {"$ref": "#/$defs/sha256"},
+        "analysis_implementation_sha256": {"$ref": "#/$defs/sha256"},
+        "dependency_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "container_image_digest": {
+          "oneOf": [
+            {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            {"type": "null"}
+          ]
+        },
+        "replay_command_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operator_id",
+        "machine_id",
+        "attestation_authority_id",
+        "attestation_id"
+      ],
+      "properties": {
+        "operator_id": {"$ref": "#/$defs/identifier"},
+        "machine_id": {"$ref": "#/$defs/identifier"},
+        "attestation_authority_id": {"$ref": "#/$defs/identifier"},
+        "attestation_id": {"$ref": "#/$defs/identifier"}
+      }
+    }
+  }
+}

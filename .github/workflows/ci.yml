@@ -64,6 +64,10 @@ jobs:
           wheel-smoke/bin/python -m pip install --disable-pip-version-check --no-index dist/*.whl
           wheel-smoke/bin/python -c "from prompt_performance_engine.profiles import load_profiles; assert len(load_profiles()) == 13"
           wheel-smoke/bin/python -c "from prompt_performance_engine.compiler import compile_request; from prompt_performance_engine.contracts import OptimizationRequest; assert compile_request(OptimizationRequest(source_prompt='Write Python code.'))['runtime_request']['resolved_domain']['id'] == 'software_engineering'"
+          wheel-smoke/bin/python -c "from prompt_performance_engine import ARTIFACT_SCHEMA_VERSION, FRONTIER_CONTRACT_SCHEMA_VERSION, PACKAGE_VERSION; assert PACKAGE_VERSION == '0.4.0'; assert ARTIFACT_SCHEMA_VERSION == '2.0.0'; assert FRONTIER_CONTRACT_SCHEMA_VERSION == '1.0.0'"
+          PPE_EXPECTED_SCHEMAS="$(PYTHONPATH=src python -c 'import json, runpy; release = runpy.run_path("scripts/validate_release.py"); print(json.dumps(sorted(release["REGISTERED_SCHEMA_FILENAMES"])))')"
+          export PPE_EXPECTED_SCHEMAS
+          wheel-smoke/bin/python -c "import json, os; from prompt_performance_engine.contracts import PACKAGE_ROOT; expected = set(json.loads(os.environ['PPE_EXPECTED_SCHEMAS'])); actual = {path.name for path in (PACKAGE_ROOT / 'schemas').glob('*.json')}; assert actual == expected, {'missing': sorted(expected - actual), 'unexpected': sorted(actual - expected)}"
 
       - name: Upload distributions
         uses: actions/upload-artifact@v7

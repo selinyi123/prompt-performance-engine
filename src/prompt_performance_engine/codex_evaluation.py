@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import secrets
 from pathlib import Path
 from typing import Any, Callable
 
-from .adapters import CodexExecAdapter
+from .adapters import CodexExecAdapter, model_call_record
+from .contracts import ARTIFACT_SCHEMA_VERSION, parse_strict_json_object
 from .evaluation import (
     EvaluationCase,
     ExecutionConfig,
@@ -20,8 +20,25 @@ from .hashing import sha256_json
 
 
 AdapterFactory = Callable[[], CodexExecAdapter]
-JSON_OBJECT_RE = re.compile(r"\{.*\}", flags=re.DOTALL)
+SCHEMA_VERSION = ARTIFACT_SCHEMA_VERSION
 EVALUATION_PROTOCOL = "codex-software-exec-v26"
+JUDGE_RESPONSE_FIELDS = frozenset(
+    {"winner", "reason", "fatal_flaw_a", "fatal_flaw_b"}
+)
+EXECUTOR_CACHE_FIELDS = frozenset(
+    {"schema_version", "cache_key", "text", "metadata"}
+)
+JUDGE_CACHE_FIELDS = frozenset(
+    {
+        "schema_version",
+        "cache_key",
+        "winner",
+        "reason",
+        "fatal_flaw_a",
+        "fatal_flaw_b",
+        "model_metadata",
+    }
+)
 TEXT_ONLY_EXECUTION_CONTEXT = """This is a matched text-only benchmark.
 No repository or local files are part of the case unless their contents appear
 in the runtime input. Complete implementation and design tasks as fully as the
@@ -40,20 +57,37 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def _load_json_response(text: str) -> dict[str, Any]:
-    candidate = text.strip()
-    if candidate.startswith("```"):
-        lines = candidate.splitlines()
-        candidate = "\n".join(lines[1:-1]).strip()
-    try:
-        data = json.loads(candidate)
-    except json.JSONDecodeError:
-        match = JSON_OBJECT_RE.search(candidate)
-        if match is None:
-            raise ValueError("Judge response did not contain a JSON object.") from None
-        data = json.loads(match.group(0))
-    if not isinstance(data, dict):
-        raise ValueError("Judge response root must be an object.")
+    data = parse_strict_json_object(text, label="judge response")
+    if set(data) != JUDGE_RESPONSE_FIELDS:
+        missing = sorted(JUDGE_RESPONSE_FIELDS - set(data))
+        unknown = sorted(set(data) - JUDGE_RESPONSE_FIELDS, key=str)
+        details: list[str] = []
+        if missing:
+            details.append("missing " + ", ".join(missing))
+        if unknown:
+            details.append("unknown " + ", ".join(map(str, unknown)))
+        raise ValueError(
+            "Judge response must contain exactly winner, reason, fatal_flaw_a, "
+            "and fatal_flaw_b (" + "; ".join(details) + ")."
+        )
     return data
+
+
+def _load_cache(
+    path: Path,
+    *,
+    key: str,
+    fields: frozenset[str],
+    label: str,
+) -> dict[str, Any]:
+    cached = parse_strict_json_object(path.read_text(encoding="utf-8"), label=label)
+    if set(cached) != fields:
+        raise ValueError(f"{label} fields do not match the cache contract.")
+    if cached["schema_version"] != SCHEMA_VERSION:
+        raise ValueError(f"{label} schema_version is unsupported.")
+    if cached["cache_key"] != key:
+        raise ValueError(f"{label} cache_key does not match its request.")
+    return cached
 
 
 class CachedCodexExecutor:
@@ -85,19 +119,34 @@ class CachedCodexExecutor:
         key = sha256_json(key_data)
         path = self.cache_directory / f"{key}.json"
         if path.is_file():
-            cached = json.loads(path.read_text(encoding="utf-8"))
+            cached = _load_cache(
+                path,
+                key=key,
+                fields=EXECUTOR_CACHE_FIELDS,
+                label="executor cache",
+            )
+            if not isinstance(cached["text"], str) or not isinstance(
+                cached["metadata"], dict
+            ):
+                raise ValueError("executor cache payload is invalid.")
             self.calls.append({"cache_key": key, "cached": True})
             return ExecutionOutput(cached["text"], cached["metadata"])
         adapter = self.adapter_factory()
+        system_prompt = f"{prompt}\n\n{TEXT_ONLY_EXECUTION_CONTEXT}"
         response = adapter.complete(
-            system_prompt=f"{prompt}\n\n{TEXT_ONLY_EXECUTION_CONTEXT}",
+            system_prompt=system_prompt,
             user_payload=input_text,
         )
-        metadata = response.to_metadata()
+        metadata = model_call_record(
+            response,
+            purpose="benchmark_execution",
+            system_prompt=system_prompt,
+            user_payload=input_text,
+        )
         _atomic_json(
             path,
             {
-                "schema_version": "1.0.0",
+                "schema_version": SCHEMA_VERSION,
                 "cache_key": key,
                 "text": response.text,
                 "metadata": metadata,
@@ -144,15 +193,22 @@ class CachedCodexBlindJudge:
         key = sha256_json(key_data)
         path = self.cache_directory / f"{key}.json"
         if path.is_file():
-            cached = json.loads(path.read_text(encoding="utf-8"))
+            cached = _load_cache(
+                path,
+                key=key,
+                fields=JUDGE_CACHE_FIELDS,
+                label="judge cache",
+            )
             self.calls.append({"cache_key": key, "cached": True})
-            return JudgeDecision(
+            decision = JudgeDecision(
                 winner=cached["winner"],
                 reason=cached["reason"],
-                fatal_flaw_a=bool(cached.get("fatal_flaw_a", False)),
-                fatal_flaw_b=bool(cached.get("fatal_flaw_b", False)),
-                metadata=cached.get("model_metadata", {}),
+                fatal_flaw_a=cached["fatal_flaw_a"],
+                fatal_flaw_b=cached["fatal_flaw_b"],
+                metadata=cached["model_metadata"],
             )
+            decision.validate()
+            return decision
 
         instructions = """You are an independent blind A/B evaluator.
 Judge only the two supplied outputs against the case and rubric.
@@ -179,24 +235,30 @@ Do not reveal chain-of-thought."""
             user_payload=payload,
         )
         data = _load_json_response(response.text)
+        metadata = model_call_record(
+            response,
+            purpose="benchmark_judge",
+            system_prompt=instructions,
+            user_payload=payload,
+        )
         decision = JudgeDecision(
-            winner=str(data.get("winner", "")),
-            reason=str(data.get("reason", "")),
-            fatal_flaw_a=bool(data.get("fatal_flaw_a", False)),
-            fatal_flaw_b=bool(data.get("fatal_flaw_b", False)),
-            metadata=response.to_metadata(),
+            winner=data["winner"],
+            reason=data["reason"],
+            fatal_flaw_a=data["fatal_flaw_a"],
+            fatal_flaw_b=data["fatal_flaw_b"],
+            metadata=metadata,
         )
         decision.validate()
         _atomic_json(
             path,
             {
-                "schema_version": "1.0.0",
+                "schema_version": SCHEMA_VERSION,
                 "cache_key": key,
                 "winner": decision.winner,
                 "reason": decision.reason,
                 "fatal_flaw_a": decision.fatal_flaw_a,
                 "fatal_flaw_b": decision.fatal_flaw_b,
-                "model_metadata": response.to_metadata(),
+                "model_metadata": metadata,
             },
         )
         self.calls.append({"cache_key": key, "cached": False})

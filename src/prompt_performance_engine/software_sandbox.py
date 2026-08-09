@@ -12,18 +12,24 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 
+MAX_PIDS_LIMIT = 64
+MAX_MEMORY_BYTES = 128 * 1024 * 1024
+MAX_NANO_CPUS = 500_000_000
+MAX_TMPFS_SIZE_BYTES = 16 * 1024 * 1024
+
+
 @dataclass(frozen=True)
 class DockerSandboxPolicy:
     network_mode: str = "none"
     read_only_root: bool = True
     cap_drop: tuple[str, ...] = ("ALL",)
     no_new_privileges: bool = True
-    pids_limit: int = 64
-    memory_bytes: int = 128 * 1024 * 1024
-    memory_swap_bytes: int = 128 * 1024 * 1024
-    nano_cpus: int = 500_000_000
+    pids_limit: int = MAX_PIDS_LIMIT
+    memory_bytes: int = MAX_MEMORY_BYTES
+    memory_swap_bytes: int = MAX_MEMORY_BYTES
+    nano_cpus: int = MAX_NANO_CPUS
     user: str = "65534:65534"
-    tmpfs_size_bytes: int = 16 * 1024 * 1024
+    tmpfs_size_bytes: int = MAX_TMPFS_SIZE_BYTES
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -45,6 +51,7 @@ class SandboxRun:
     probe_facts: dict[str, Any]
     policy: dict[str, Any]
     policy_verified: bool
+    exit_state_verified: bool = False
 
 
 class DockerSandbox:
@@ -73,11 +80,15 @@ class DockerSandbox:
             or self.policy.cap_drop != ("ALL",)
             or not self.policy.no_new_privileges
             or self.policy.pids_limit <= 0
+            or self.policy.pids_limit > MAX_PIDS_LIMIT
             or self.policy.memory_bytes <= 0
+            or self.policy.memory_bytes > MAX_MEMORY_BYTES
             or self.policy.memory_swap_bytes != self.policy.memory_bytes
             or self.policy.nano_cpus <= 0
-            or self.policy.user in {"", "0", "0:0", "root"}
+            or self.policy.nano_cpus > MAX_NANO_CPUS
+            or self.policy.user != DockerSandboxPolicy().user
             or self.policy.tmpfs_size_bytes <= 0
+            or self.policy.tmpfs_size_bytes > MAX_TMPFS_SIZE_BYTES
         ):
             raise ValueError("Docker sandbox policy weakens a required boundary.")
 
@@ -156,16 +167,38 @@ class DockerSandbox:
     def _policy_matches(self, record: dict[str, Any]) -> bool:
         host = record.get("HostConfig", {})
         config = record.get("Config", {})
+        effective_mounts = record.get("Mounts")
+        if not isinstance(host, dict) or not isinstance(config, dict):
+            return False
+        if not isinstance(effective_mounts, list) or len(effective_mounts) > 1:
+            return False
+        if any(
+            not isinstance(mount, dict)
+            or str(mount.get("Type", "")).lower() != "tmpfs"
+            or mount.get("Destination") != "/tmp"
+            or mount.get("RW") is not True
+            for mount in effective_mounts
+        ):
+            return False
         policy = self.policy
         security_options = {
             str(item).lower() for item in host.get("SecurityOpt") or []
         }
         cap_drop = {str(item).upper() for item in host.get("CapDrop") or []}
-        tmpfs = host.get("Tmpfs") or {}
-        tmpfs_options = {
+        tmpfs = host.get("Tmpfs")
+        if not isinstance(tmpfs, dict) or set(tmpfs) != {"/tmp"}:
+            return False
+        tmpfs_options = [
             item.strip().lower()
             for item in str(tmpfs.get("/tmp", "")).split(",")
             if item.strip()
+        ]
+        expected_tmpfs_options = {
+            "rw",
+            "noexec",
+            "nosuid",
+            "nodev",
+            f"size={policy.tmpfs_size_bytes}",
         }
         return all(
             (
@@ -176,27 +209,33 @@ class DockerSandbox:
                 not host.get("Mounts"),
                 not host.get("Devices"),
                 not host.get("DeviceRequests"),
-                host.get("PidMode") != "host",
-                host.get("IpcMode") != "host",
+                host.get("PidMode") in {"", "private"},
+                host.get("IpcMode") in {"", "private"},
                 "ALL" in cap_drop,
-                any(
-                    option.startswith("no-new-privileges")
-                    for option in security_options
+                not host.get("CapAdd"),
+                not host.get("GroupAdd"),
+                security_options
+                in (
+                    {"no-new-privileges"},
+                    {"no-new-privileges:true"},
                 ),
                 host.get("PidsLimit") == policy.pids_limit,
                 host.get("Memory") == policy.memory_bytes,
                 host.get("MemorySwap") == policy.memory_swap_bytes,
                 host.get("NanoCpus") == policy.nano_cpus,
                 config.get("User") == policy.user,
-                {"rw", "noexec", "nosuid", "nodev"}.issubset(
-                    tmpfs_options
-                ),
-                (
-                    f"size={policy.tmpfs_size_bytes}"
-                    in tmpfs_options
-                ),
+                len(tmpfs_options) == len(expected_tmpfs_options),
+                set(tmpfs_options) == expected_tmpfs_options,
             )
         )
+
+    @staticmethod
+    def _decode_process_text(value: str | bytes | None) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, bytes):
+            return value.decode("utf-8", errors="replace")
+        return value
 
     def run_script(
         self,
@@ -211,16 +250,24 @@ class DockerSandbox:
         completed: subprocess.CompletedProcess[str] | None = None
         timed_out = False
         inspect_record: dict[str, Any] = {}
+        cleanup_required = False
+        create_outcome_uncertain = False
         try:
-            created = subprocess.run(
-                self._base_command(name),
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=30,
-                check=False,
-            )
+            cleanup_required = True
+            create_outcome_uncertain = True
+            try:
+                created = subprocess.run(
+                    self._base_command(name),
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=30,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                raise
+            create_outcome_uncertain = False
             if created.returncode != 0:
                 raise RuntimeError(
                     "Docker create failed: "
@@ -253,38 +300,82 @@ class DockerSandbox:
                 completed = subprocess.CompletedProcess(
                     args=exc.cmd,
                     returncode=None,
-                    stdout=exc.stdout or "",
-                    stderr=exc.stderr or "",
+                    stdout=self._decode_process_text(exc.stdout),
+                    stderr=self._decode_process_text(exc.stderr),
                 )
             inspect_record = self._inspect(name)
         finally:
-            subprocess.run(
-                [self.docker_command, "rm", "--force", name],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=15,
-                check=False,
-            )
+            if cleanup_required:
+                try:
+                    removed = subprocess.run(
+                        [self.docker_command, "rm", "--force", name],
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        timeout=15,
+                        check=False,
+                    )
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    raise RuntimeError(
+                        "Docker sandbox cleanup failed or timed out; container "
+                        "removal is not proven."
+                    ) from exc
+                removal_error = (removed.stderr or "").strip()
+                definitely_absent = (
+                    not create_outcome_uncertain
+                    and "no such container" in removal_error.lower()
+                )
+                if removed.returncode != 0 and not definitely_absent:
+                    raise RuntimeError(
+                        "Docker sandbox cleanup failed; container removal is not "
+                        "proven: "
+                        + (removal_error or "unknown error")
+                    )
 
         elapsed_ms = round((time.monotonic() - started) * 1000)
         policy_verified = self._policy_matches(inspect_record)
-        state = inspect_record.get("State", {})
+        state = inspect_record.get("State")
+        state_valid = isinstance(state, dict)
+        if not state_valid:
+            state = {}
         oom_killed = state.get("OOMKilled") is True
         image_id = str(inspect_record.get("Image", ""))
         stdout = completed.stdout if completed is not None else ""
         stderr = completed.stderr if completed is not None else ""
-        exit_code = (
+        client_exit_code = (
             completed.returncode
-            if completed is not None and isinstance(completed.returncode, int)
-            else state.get("ExitCode")
+            if completed is not None
+            and isinstance(completed.returncode, int)
+            and not isinstance(completed.returncode, bool)
+            else None
         )
-        passed = not timed_out and exit_code == 0 and policy_verified
+        state_exit_code = (
+            state.get("ExitCode")
+            if isinstance(state.get("ExitCode"), int)
+            and not isinstance(state.get("ExitCode"), bool)
+            else None
+        )
+        state_consistent = (
+            state_valid
+            and state.get("Running") is False
+            and state_exit_code is not None
+            and state_exit_code == client_exit_code
+        )
+        exit_code = state_exit_code
+        passed = (
+            not timed_out
+            and state_consistent
+            and not oom_killed
+            and exit_code == 0
+            and policy_verified
+        )
         if timed_out:
             detail = f"Docker sandbox timed out after {timeout_seconds:g}s."
         elif not policy_verified:
             detail = "Docker runtime policy did not match the required isolation."
+        elif not state_consistent:
+            detail = "Docker sandbox exit state did not match the attached process."
         elif oom_killed:
             detail = "Docker sandbox process was terminated by the memory limit."
         elif exit_code != 0:
@@ -322,6 +413,7 @@ class DockerSandbox:
             probe_facts=probe_facts,
             policy=self.policy.to_dict(),
             policy_verified=policy_verified,
+            exit_state_verified=state_consistent,
         )
 
     def verify_isolation(self) -> SandboxRun:
@@ -361,7 +453,11 @@ facts = {
     "network_blocked": network_blocked,
     "root_read_only": root_read_only,
     "tmp_writable": tmp_writable,
-    "non_root": os.geteuid() != 0,
+    "non_root": (
+        os.geteuid() != 0
+        and os.getegid() != 0
+        and all(group != 0 for group in os.getgroups())
+    ),
 }
 print("PPE_PYTHON_VERSION=" + sys.version.split()[0])
 print("PPE_SANDBOX_FACTS=" + json.dumps(facts, sort_keys=True))

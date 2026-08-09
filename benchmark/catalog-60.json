@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "suite_id": "cross-domain-60-v2",
   "includes": [
     "core-18.json",

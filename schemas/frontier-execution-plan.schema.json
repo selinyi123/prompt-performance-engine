@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prompt-performance-engine:schema:frontier:execution-plan:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "campaign_sha256",
+    "system_id",
+    "slots",
+    "plan_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "plan_id": {"$ref": "#/$defs/identifier"},
+    "campaign_sha256": {"$ref": "#/$defs/sha256"},
+    "system_id": {"$ref": "#/$defs/identifier"},
+    "slots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/slot"}
+    },
+    "plan_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot_id",
+        "component_id",
+        "unit_id",
+        "case_id",
+        "replicate_index",
+        "retry_index",
+        "model_id",
+        "purpose",
+        "route",
+        "route_authority_id",
+        "system_prompt_sha256",
+        "user_payload_sha256",
+        "seed"
+      ],
+      "properties": {
+        "slot_id": {"$ref": "#/$defs/identifier"},
+        "component_id": {"$ref": "#/$defs/identifier"},
+        "unit_id": {"$ref": "#/$defs/identifier"},
+        "case_id": {"$ref": "#/$defs/identifier"},
+        "replicate_index": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "retry_index": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "model_id": {"$ref": "#/$defs/identifier"},
+        "purpose": {"$ref": "#/$defs/identifier"},
+        "route": {"$ref": "#/$defs/identifier"},
+        "route_authority_id": {"$ref": "#/$defs/identifier"},
+        "system_prompt_sha256": {"$ref": "#/$defs/sha256"},
+        "user_payload_sha256": {"$ref": "#/$defs/sha256"},
+        "seed": {
+          "oneOf": [
+            {"type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991},
+            {"type": "null"}
+          ]
+        }
+      }
+    }
+  }
+}

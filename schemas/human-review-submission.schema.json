@@ -1,20 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/prompt-performance/1.0.0/human-review-submission.schema.json",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/human-review-submission.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "reviewer_id",
+    "authority",
     "packet_sha256",
     "decisions"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
     "reviewer_id": {"type": "string", "minLength": 1},
+    "authority": {"$ref": "#/$defs/authority"},
     "packet_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "decisions": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -23,6 +26,30 @@
           "item_id": {"type": "string", "minLength": 1},
           "winner": {"enum": ["A", "B", "tie"]},
           "reason": {"type": "string", "minLength": 20}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replicate_report_sha256",
+        "suite_id",
+        "benchmark_definition_sha256",
+        "evaluation_sha256s"
+      ],
+      "properties": {
+        "replicate_report_sha256": {"$ref": "#/$defs/sha256"},
+        "suite_id": {"type": "string", "minLength": 1},
+        "benchmark_definition_sha256": {"$ref": "#/$defs/sha256"},
+        "evaluation_sha256s": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/sha256"}
         }
       }
     }

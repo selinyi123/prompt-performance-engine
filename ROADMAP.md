@@ -59,6 +59,13 @@ Gate:
 
 ## v0.4.0: Comparative Evaluation Runtime
 
+Scope evolution (2026-07-22): before publication, this milestone expanded from
+the comparative runtime below into the Frontier Evidence Contract recorded in
+ADR-011 and `IMPLEMENTATION-STATUS.md`. The original comparison deliverables
+remain part of v0.4.0; the added contract defines how those and later-implemented
+capabilities can contribute to a scoped claim without treating local machinery
+as independent evidence.
+
 Deliver:
 
 - original-versus-optimized execution;
@@ -112,15 +119,21 @@ Gate:
 Deliver:
 
 - reviewer packet and blind review UI or form;
-- conflict adjudication;
+- diagnostic conflict adjudication that cannot replace direct E4 consensus;
 - judge-human agreement metrics;
-- position and verbosity bias probes;
+- HMAC-v3 public packets, coordinator-only blinding/source/probe keys, and per-reviewer
+  position and verbosity bias probes;
+- host-supplied reviewer identity/qualification/independence receipt verification;
 - E4 evidence generation.
 
 Gate:
 
-- three independent reviewers complete at least 24 stratified cases;
-- disagreements are adjudicated;
+- three independently receipt-verified reviewers cover the same 24 or more
+  stratified cases;
+- every reviewer completes at least two reversed probes consistently and makes
+  non-degenerate base A/B selections;
+- all release-counted cases reach direct reviewer consensus and direct human
+  wins exceed losses; coordinator adjudication remains diagnostic;
 - reliability and bias metrics are published with limitations.
 
 ## v0.8.0: Production Service

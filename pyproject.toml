@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prompt-performance-engine"
-version = "0.3.0"
+version = "0.4.0"
 description = "Cross-domain Prompt optimization and evidence engine"
 requires-python = ">=3.11"
 dependencies = []
@@ -19,6 +19,12 @@ package-dir = {"" = "src"}
 prompt_performance_engine = ["py.typed"]
 
 [tool.setuptools.data-files]
-prompt_performance_engine_data = ["VERSION"]
+prompt_performance_engine_data = [
+    "VERSION",
+    "QUALITY-GATE-SPEC.md",
+    "FRONTIER-EVIDENCE-CAMPAIGN.md",
+    "STRONG-BASELINE-MATRIX.md",
+]
 "prompt_performance_engine_data/prompts" = ["prompts/optimizer.md"]
 "prompt_performance_engine_data/profiles" = ["profiles/domain_profiles.json"]
+"prompt_performance_engine_data/schemas" = ["schemas/*.json"]

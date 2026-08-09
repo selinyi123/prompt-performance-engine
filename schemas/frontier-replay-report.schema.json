@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prompt-performance-engine:schema:frontier:replay-report:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "replay_id",
+    "plan_id",
+    "campaign_id",
+    "report_id",
+    "passed",
+    "failures",
+    "plan_sha256",
+    "input_commitments_sha256",
+    "source_artifacts_sha256",
+    "expected_report_file_sha256",
+    "actual_report_file_sha256",
+    "expected_report_sha256",
+    "actual_report_sha256",
+    "expected_report_canonical_sha256",
+    "actual_report_canonical_sha256",
+    "expected_claim_inventory_file_sha256",
+    "actual_claim_inventory_file_sha256",
+    "expected_claim_inventory_sha256",
+    "actual_claim_inventory_sha256",
+    "environment_sha256",
+    "replay_command_sha256",
+    "exit_code",
+    "operator_id",
+    "machine_id",
+    "claim_validation_timestamp",
+    "operator_attestation_receipt_sha256",
+    "replay_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "replay_id": {"$ref": "#/$defs/identifier"},
+    "plan_id": {"$ref": "#/$defs/identifier"},
+    "campaign_id": {"$ref": "#/$defs/identifier"},
+    "report_id": {"$ref": "#/$defs/identifier"},
+    "passed": {"type": "boolean"},
+    "failures": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "plan_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "input_commitments_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "source_artifacts_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "expected_report_file_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "actual_report_file_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "expected_report_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "actual_report_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "expected_report_canonical_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "actual_report_canonical_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "expected_claim_inventory_file_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "actual_claim_inventory_file_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "expected_claim_inventory_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "actual_claim_inventory_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "environment_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "replay_command_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "exit_code": {"type": "integer", "minimum": 0},
+    "operator_id": {"$ref": "#/$defs/identifier"},
+    "machine_id": {"$ref": "#/$defs/identifier"},
+    "claim_validation_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+    },
+    "operator_attestation_receipt_sha256": {"$ref": "#/$defs/optionalSha256"},
+    "replay_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"passed": {"const": true}},
+        "required": ["passed"]
+      },
+      "then": {
+        "properties": {
+          "failures": {"maxItems": 0},
+          "plan_sha256": {"$ref": "#/$defs/sha256"},
+          "input_commitments_sha256": {"$ref": "#/$defs/sha256"},
+          "source_artifacts_sha256": {"$ref": "#/$defs/sha256"},
+          "expected_report_file_sha256": {"$ref": "#/$defs/sha256"},
+          "actual_report_file_sha256": {"$ref": "#/$defs/sha256"},
+          "expected_report_sha256": {"$ref": "#/$defs/sha256"},
+          "actual_report_sha256": {"$ref": "#/$defs/sha256"},
+          "expected_report_canonical_sha256": {"$ref": "#/$defs/sha256"},
+          "actual_report_canonical_sha256": {"$ref": "#/$defs/sha256"},
+          "expected_claim_inventory_file_sha256": {"$ref": "#/$defs/sha256"},
+          "actual_claim_inventory_file_sha256": {"$ref": "#/$defs/sha256"},
+          "expected_claim_inventory_sha256": {"$ref": "#/$defs/sha256"},
+          "actual_claim_inventory_sha256": {"$ref": "#/$defs/sha256"},
+          "environment_sha256": {"$ref": "#/$defs/sha256"},
+          "replay_command_sha256": {"$ref": "#/$defs/sha256"},
+          "exit_code": {"const": 0},
+          "operator_attestation_receipt_sha256": {"$ref": "#/$defs/sha256"}
+        }
+      },
+      "else": {
+        "properties": {
+          "failures": {"minItems": 1},
+          "exit_code": {"minimum": 1},
+          "operator_attestation_receipt_sha256": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\s]+$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "optionalSha256": {
+      "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:prompt-performance-engine:schema:frontier:execution-bundle:1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "bundle_id", "campaign_sha256", "system_ids", "executions", "bundle_sha256"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "bundle_id": {"$ref": "#/$defs/identifier"},
+    "campaign_sha256": {"$ref": "#/$defs/sha256"},
+    "system_ids": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "executions": {
+      "type": "array",
+      "minItems": 6,
+      "items": {"$ref": "#/$defs/execution"}
+    },
+    "bundle_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system_id", "execution_plan", "execution_manifest"],
+      "properties": {
+        "system_id": {"$ref": "#/$defs/identifier"},
+        "execution_plan": {"$ref": "urn:prompt-performance-engine:schema:frontier:execution-plan:1.0.0"},
+        "execution_manifest": {"$ref": "urn:prompt-performance-engine:schema:frontier:execution-manifest:1.0.0"}
+      }
+    }
+  }
+}

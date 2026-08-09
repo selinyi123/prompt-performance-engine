@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/prompt-performance/2.0.0/human-review-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority",
+    "reviewer_ids",
+    "reviewer_count",
+    "reviewed_case_count",
+    "fully_covered_case_count",
+    "case_coverage",
+    "review_artifacts",
+    "reviewer_protocol_results",
+    "source_bundle_sha256",
+    "unresolved_cases",
+    "adjudicated_cases",
+    "consensus",
+    "pairwise_agreement",
+    "judge_human_agreement",
+    "base_position_a_selection_rate",
+    "position_probe_expected",
+    "position_probe_completed",
+    "position_probe_coverage",
+    "position_probe_consistency",
+    "position_biased_probe_pairs",
+    "position_inconclusive_probe_pairs",
+    "all_reviewer_protocols_passed",
+    "all_reviewer_receipts_verified",
+    "human_improvement_confirmed",
+    "longer_output_selection_rate",
+    "e4_ready",
+    "evidence",
+    "human_review_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "authority": {"$ref": "#/$defs/authority"},
+    "reviewer_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "reviewer_count": {"type": "integer", "minimum": 0},
+    "reviewed_case_count": {"type": "integer", "minimum": 0},
+    "fully_covered_case_count": {"type": "integer", "minimum": 0},
+    "case_coverage": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/caseCoverage"}
+    },
+    "review_artifacts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/reviewArtifact"}
+    },
+    "reviewer_protocol_results": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/reviewerProtocolResult"}
+    },
+    "source_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "unresolved_cases": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "adjudicated_cases": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "consensus": {
+      "type": "object",
+      "additionalProperties": {"enum": ["win", "tie", "loss"]}
+    },
+    "pairwise_agreement": {"$ref": "#/$defs/rate"},
+    "judge_human_agreement": {"$ref": "#/$defs/rate"},
+    "base_position_a_selection_rate": {"$ref": "#/$defs/rate"},
+    "position_probe_expected": {"type": "integer", "minimum": 0},
+    "position_probe_completed": {"type": "integer", "minimum": 0},
+    "position_probe_coverage": {"$ref": "#/$defs/rate"},
+    "position_probe_consistency": {"$ref": "#/$defs/rate"},
+    "position_biased_probe_pairs": {"type": "integer", "minimum": 0},
+    "position_inconclusive_probe_pairs": {"type": "integer", "minimum": 0},
+    "all_reviewer_protocols_passed": {"type": "boolean"},
+    "all_reviewer_receipts_verified": {"type": "boolean"},
+    "human_improvement_confirmed": {"type": "boolean"},
+    "longer_output_selection_rate": {"$ref": "#/$defs/rate"},
+    "e4_ready": {"type": "boolean"},
+    "evidence": {"$ref": "#/$defs/evidence"},
+    "human_review_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replicate_report_sha256",
+        "suite_id",
+        "benchmark_definition_sha256",
+        "evaluation_sha256s"
+      ],
+      "properties": {
+        "replicate_report_sha256": {"$ref": "#/$defs/sha256"},
+        "suite_id": {"type": "string", "minLength": 1},
+        "benchmark_definition_sha256": {"$ref": "#/$defs/sha256"},
+        "evaluation_sha256s": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "caseCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_id",
+        "case_id",
+        "domain",
+        "case_sha256",
+        "source_evaluation_sha256",
+        "reviewer_ids",
+        "reviewer_count"
+      ],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "case_id": {"type": "string", "minLength": 1},
+        "domain": {"type": "string", "minLength": 1},
+        "case_sha256": {"$ref": "#/$defs/sha256"},
+        "source_evaluation_sha256": {"$ref": "#/$defs/sha256"},
+        "reviewer_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "reviewer_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "reviewArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer_id",
+        "packet_sha256",
+        "key_sha256",
+        "submission_sha256",
+        "reviewer_receipt_sha256",
+        "reviewer_identity_verified"
+      ],
+      "properties": {
+        "reviewer_id": {"type": "string", "minLength": 1},
+        "packet_sha256": {"$ref": "#/$defs/sha256"},
+        "key_sha256": {"$ref": "#/$defs/sha256"},
+        "submission_sha256": {"$ref": "#/$defs/sha256"},
+        "reviewer_receipt_sha256": {
+          "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+        },
+        "reviewer_identity_verified": {"type": "boolean"}
+      }
+    },
+    "reviewerProtocolResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer_id",
+        "expected_probe_pairs",
+        "completed_probe_pairs",
+        "consistent_probe_pairs",
+        "position_biased_probe_pairs",
+        "inconclusive_probe_pairs",
+        "base_a_selections",
+        "base_b_selections",
+        "base_tie_selections",
+        "passed"
+      ],
+      "properties": {
+        "reviewer_id": {"type": "string", "minLength": 1},
+        "expected_probe_pairs": {"type": "integer", "minimum": 2},
+        "completed_probe_pairs": {"type": "integer", "minimum": 0},
+        "consistent_probe_pairs": {"type": "integer", "minimum": 0},
+        "position_biased_probe_pairs": {"type": "integer", "minimum": 0},
+        "inconclusive_probe_pairs": {"type": "integer", "minimum": 0},
+        "base_a_selections": {"type": "integer", "minimum": 0},
+        "base_b_selections": {"type": "integer", "minimum": 0},
+        "base_tie_selections": {"type": "integer", "minimum": 0},
+        "passed": {"type": "boolean"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "status", "claim", "limitations"],
+      "properties": {
+        "level": {"enum": ["E3", "E4"]},
+        "status": {"const": "verified_scoped"},
+        "claim": {"const": "verified_improvement"},
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

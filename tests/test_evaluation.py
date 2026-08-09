@@ -1,4 +1,6 @@
 import hashlib
+import copy
+import math
 import unittest
 
 from prompt_performance_engine.evaluation import (
@@ -12,6 +14,7 @@ from prompt_performance_engine.evaluation import (
     evaluate_suite,
     validate_evaluation,
 )
+from prompt_performance_engine.hashing import hash_payload
 
 
 ORIGINAL = "Original Prompt"
@@ -43,6 +46,20 @@ class ContentJudge:
         if "better" in output_b and "better" not in output_a:
             return JudgeDecision("B", "B better satisfies the rubric.")
         return JudgeDecision("tie", "No material difference.")
+
+
+class PreferCompleteOutputJudge:
+    def __init__(self, name):
+        self.name = name
+        self.calls = []
+
+    def judge(self, *, case, output_a, output_b):
+        self.calls.append((case.case_id, output_a, output_b))
+        if "complete baseline" in output_a:
+            return JudgeDecision("A", "A is the complete, useful response.")
+        if "complete baseline" in output_b:
+            return JudgeDecision("B", "B is the complete, useful response.")
+        return JudgeDecision("tie", "Neither response is complete.")
 
 
 class EvaluationRuntimeTests(unittest.TestCase):
@@ -155,6 +172,11 @@ class EvaluationRuntimeTests(unittest.TestCase):
             },
         )
 
+    def test_execution_config_rejects_boolean_numeric_fields(self):
+        for field in ("temperature", "max_tokens", "seed"):
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                ExecutionConfig(model="provider-model", **{field: True})
+
     def test_five_matched_wins_produce_e2(self):
         cases = self.make_cases(5)
         executor = RecordedExecutor(recorded_outputs(cases))
@@ -176,6 +198,35 @@ class EvaluationRuntimeTests(unittest.TestCase):
         self.assertEqual(validate_evaluation(result), [])
         self.assertEqual(len(judges[0].calls), 5)
         self.assertEqual(len(executor.calls), 10)
+
+    def test_repetition_flag_cannot_promote_or_mark_single_evaluation(self):
+        cases = self.make_cases(20)
+        result = evaluate_suite(
+            suite_id="caller-claimed-repeat",
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            cases=cases,
+            executor=RecordedExecutor(recorded_outputs(cases)),
+            judges=[ContentJudge("judge-1"), ContentJudge("judge-2")],
+            config=ExecutionConfig(model="recorded-model"),
+            repeated_or_cross_model=True,
+        )
+
+        self.assertEqual(result["evidence"]["level"], "E2")
+        self.assertFalse(result["repeated_or_cross_model"])
+        self.assertEqual(validate_evaluation(result), [])
+
+        result["repeated_or_cross_model"] = True
+        from prompt_performance_engine.hashing import hash_payload
+
+        result["evaluation_sha256"] = hash_payload(
+            result,
+            "evaluation_sha256",
+        )
+        self.assertIn(
+            "a suite evaluation cannot claim repeated-run authority",
+            validate_evaluation(result),
+        )
 
     def test_four_cases_cannot_claim_verified_improvement(self):
         cases = self.make_cases(4)
@@ -223,6 +274,43 @@ class EvaluationRuntimeTests(unittest.TestCase):
         self.assertEqual(result["evidence"]["level"], "E1")
         self.assertEqual(validate_evaluation(result), [])
 
+    def test_narrow_hard_check_pass_does_not_automatically_win(self):
+        cases = [
+            EvaluationCase(
+                case_id=f"narrow-hard-check-{index}",
+                input_text=f"input-{index}",
+                rubric=("Correctness", "Completeness"),
+                required_substrings=("REQUIRED",),
+            )
+            for index in range(5)
+        ]
+        judges = [
+            PreferCompleteOutputJudge("judge-1"),
+            PreferCompleteOutputJudge("judge-2"),
+        ]
+        result = evaluate_suite(
+            suite_id="narrow-hard-check-suite",
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            cases=cases,
+            executor=RecordedExecutor(
+                recorded_outputs(
+                    cases,
+                    original_output="complete baseline without the marker",
+                    optimized_output="REQUIRED",
+                )
+            ),
+            judges=judges,
+            config=ExecutionConfig(model="recorded-model"),
+        )
+
+        self.assertEqual(result["wins"], 0)
+        self.assertEqual(result["losses"], 5)
+        self.assertFalse(result["gate_passed"])
+        self.assertEqual(len(judges[0].calls), 5)
+        self.assertEqual(len(judges[1].calls), 5)
+        self.assertEqual(validate_evaluation(result), [])
+
     def test_hard_regression_overrides_judges(self):
         case = EvaluationCase(
             case_id="hard-check",
@@ -254,7 +342,7 @@ class EvaluationRuntimeTests(unittest.TestCase):
         self.assertEqual(record["judge_decisions"], [])
         self.assertEqual(judges[0].calls, [])
 
-    def test_case_behavior_regression_overrides_judges(self):
+    def test_software_case_without_sandbox_fails_closed(self):
         case = EvaluationCase(
             case_id="se-normal-pagination",
             input_text=(
@@ -298,8 +386,10 @@ def paginate(items, page, page_size):
             judges=judges,
             config=ExecutionConfig(model="recorded-model"),
         )
-        self.assertEqual(record["outcome"], "loss")
-        self.assertTrue(record["critical_regression"])
+        self.assertEqual(record["outcome"], "tie")
+        self.assertFalse(record["critical_regression"])
+        self.assertFalse(record["hard_checks"]["original"]["passed"])
+        self.assertFalse(record["hard_checks"]["optimized"]["passed"])
         self.assertEqual(record["judge_decisions"], [])
         self.assertEqual(judges[0].calls, [])
 
@@ -316,6 +406,194 @@ def paginate(items, page, page_size):
         )
         result["records"][0]["optimized_output"] = "tampered"
         self.assertTrue(validate_evaluation(result))
+
+    def test_rehashed_record_cannot_forge_derived_evaluation_facts(self):
+        cases = self.make_cases(5)
+        original = evaluate_suite(
+            suite_id="suite",
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            cases=cases,
+            executor=RecordedExecutor(recorded_outputs(cases)),
+            judges=[ContentJudge("judge-1"), ContentJudge("judge-2")],
+            config=ExecutionConfig(model="recorded-model"),
+            blind_seed=42,
+        )
+        mutations = (
+            (
+                "unknown semantic nonce",
+                lambda record: record.__setitem__("semantic_nonce", "forged"),
+                "record fields do not match the contract",
+            ),
+            (
+                "typed boolean",
+                lambda record: record.__setitem__("critical_regression", "false"),
+                "critical regression must be a boolean",
+            ),
+            (
+                "hard-check aggregate",
+                lambda record: record["hard_checks"]["original"].__setitem__(
+                    "passed", False
+                ),
+                "hard-check result mismatch",
+            ),
+            (
+                "blind map",
+                lambda record: record["blind_map"].update(
+                    {"A": record["blind_map"]["B"], "B": record["blind_map"]["A"]}
+                ),
+                "blind map does not match its seed",
+            ),
+        )
+        for name, mutate, expected in mutations:
+            with self.subTest(name=name):
+                result = copy.deepcopy(original)
+                mutate(result["records"][0])
+                result["records"][0]["record_sha256"] = hash_payload(
+                    result["records"][0],
+                    "record_sha256",
+                )
+                result["evaluation_sha256"] = hash_payload(
+                    result,
+                    "evaluation_sha256",
+                )
+
+                failures = validate_evaluation(result)
+
+                self.assertTrue(any(expected in failure for failure in failures))
+
+    def test_rehashed_execution_config_type_drift_is_rejected(self):
+        cases = self.make_cases(5)
+        original = evaluate_suite(
+            suite_id="suite",
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            cases=cases,
+            executor=RecordedExecutor(recorded_outputs(cases)),
+            judges=[ContentJudge("judge-1"), ContentJudge("judge-2")],
+            config=ExecutionConfig(model="recorded-model"),
+        )
+        mutations = (
+            ("model", 1, "execution config model"),
+            ("temperature", True, "execution config temperature"),
+            ("temperature", float("inf"), "malformed evaluation"),
+            ("max_tokens", True, "execution config max_tokens"),
+            ("max_tokens", 0, "execution config max_tokens"),
+            ("seed", True, "execution config seed"),
+        )
+        for field, value, expected in mutations:
+            with self.subTest(field=field, value=value):
+                result = copy.deepcopy(original)
+                result["records"][0]["execution_config"][field] = value
+                if isinstance(value, float) and not math.isfinite(value):
+                    # Non-finite JSON cannot have a canonical authority hash;
+                    # keep syntactically valid digest fields and assert that
+                    # validation fails closed before accepting the record.
+                    result["records"][0]["record_sha256"] = "0" * 64
+                    result["evaluation_sha256"] = "0" * 64
+                else:
+                    result["records"][0]["record_sha256"] = hash_payload(
+                        result["records"][0],
+                        "record_sha256",
+                    )
+                    result["evaluation_sha256"] = hash_payload(
+                        result,
+                        "evaluation_sha256",
+                    )
+
+                failures = validate_evaluation(result)
+
+                self.assertTrue(any(expected in failure for failure in failures))
+
+    def test_unhashable_enum_values_fail_closed(self):
+        cases = self.make_cases(5)
+        cases[0] = EvaluationCase(
+            case_id=cases[0].case_id,
+            input_text=cases[0].input_text,
+            rubric=cases[0].rubric,
+            required_substrings=("e",),
+        )
+        original = evaluate_suite(
+            suite_id="suite",
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            cases=cases,
+            executor=RecordedExecutor(recorded_outputs(cases)),
+            judges=[ContentJudge("judge-1"), ContentJudge("judge-2")],
+            config=ExecutionConfig(model="recorded-model"),
+        )
+        mutations = (
+            ("difficulty", lambda record: record.__setitem__("difficulty", [])),
+            ("outcome", lambda record: record.__setitem__("outcome", {})),
+            (
+                "blind map label",
+                lambda record: record["blind_map"].__setitem__("A", []),
+            ),
+            (
+                "hard-check name",
+                lambda record: record["hard_checks"]["original"]["checks"][
+                    0
+                ].__setitem__("check", []),
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label):
+                result = copy.deepcopy(original)
+                mutate(result["records"][0])
+                result["records"][0]["record_sha256"] = hash_payload(
+                    result["records"][0],
+                    "record_sha256",
+                )
+                result["evaluation_sha256"] = hash_payload(
+                    result,
+                    "evaluation_sha256",
+                )
+
+                self.assertTrue(validate_evaluation(result))
+
+    def test_empty_case_id_is_rejected_after_rehash(self):
+        cases = self.make_cases(5)
+        result = evaluate_suite(
+            suite_id="suite",
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            cases=cases,
+            executor=RecordedExecutor(recorded_outputs(cases)),
+            judges=[ContentJudge("judge-1"), ContentJudge("judge-2")],
+            config=ExecutionConfig(model="recorded-model"),
+        )
+        result["records"][0]["case_id"] = ""
+        result["records"][0]["record_sha256"] = hash_payload(
+            result["records"][0],
+            "record_sha256",
+        )
+        result["evaluation_sha256"] = hash_payload(
+            result,
+            "evaluation_sha256",
+        )
+
+        self.assertIn(
+            "duplicate or invalid case id: ''",
+            validate_evaluation(result),
+        )
+
+    def test_extreme_integer_fails_closed_during_hash_validation(self):
+        cases = self.make_cases(5)
+        result = evaluate_suite(
+            suite_id="suite",
+            original_prompt=ORIGINAL,
+            optimized_prompt=OPTIMIZED,
+            cases=cases,
+            executor=RecordedExecutor(recorded_outputs(cases)),
+            judges=[ContentJudge("judge-1"), ContentJudge("judge-2")],
+            config=ExecutionConfig(model="recorded-model"),
+        )
+        result["case_count"] = 10**5000
+
+        failures = validate_evaluation(result)
+
+        self.assertTrue(failures)
+        self.assertTrue(failures[0].startswith("malformed evaluation:"))
 
 
 if __name__ == "__main__":

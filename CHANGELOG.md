@@ -2,6 +2,139 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-07-22
+
+- Advanced the stable artifact, request, evaluation, review, and readiness
+  Schema family to `2.0.0` because the fail-closed contracts are not backward
+  compatible. Genuine package `0.3.0` optimization artifacts retain their
+  `1.0.0` identity on the explicit read-only legacy validation path; the new
+  frontier campaign Schema family remains independently versioned at `1.0.0`.
+- Added `QUALITY-GATE-SPEC.md` to separate stable-release maturity from scoped
+  frontier performance and define sealed data, budget-matched strong baselines,
+  uncertainty, robustness, safety, and quality-cost-latency Pareto evidence.
+- Retired the ambiguous aspirational `top_tier_candidate` wording in favor of
+  the single future, scope-bound `top_tier_scoped` campaign vocabulary. Package
+  `0.4.0` reports `not_evaluable` until an authority-bearing external campaign
+  and independent reproduction actually pass.
+- Added `FRONTIER-EVIDENCE-CAMPAIGN.md` with the frozen roles, artifacts,
+  budgets, execution matrix, invalidation rules, and independent reproduction
+  sequence needed to turn the quality policy into an authority-bearing run.
+- Added the frontier Schema family `1.0.0`, canonical write-once artifact I/O,
+  strict campaign-bundle validation, full-freeze preflight, atomic budget
+  accounting, a preflight-authorized provider-attempt host, fail-closed
+  report/claim derivation, and deterministic offline replay with
+  three-independent-replay aggregation. These are implemented contract
+  boundaries, not evidence that real independent authorities executed them.
+- Bound every public claim metric to one exact report gate or strong-baseline
+  comparison and made its evidence summary reproducible from the complete
+  report source. Re-signing invented values or unrelated evidence digests no
+  longer validates.
+- Updated Windows Codex CLI discovery to resolve the installed `codex`
+  executable instead of assuming the legacy npm `codex.cmd` launcher.
+- Added dependency-free paired-outcome statistics for exact directional sign
+  tests, non-tie Wilson intervals, and Holm multiple-comparison decisions. The
+  helpers are explicitly diagnostic and cannot grant a frontier claim.
+- Added normalized macro/micro/worst/bottom-CVaR summaries, deterministic
+  case-cluster and domain-stratified macro bootstrap intervals, exact binomial
+  safety bounds that reject zero-trial or invalid-confidence input as not
+  evaluable, plus an any-failure case-cluster aggregator that prevents repeated
+  calls from increasing the independent trial count. Exact-binomial authority is
+  restricted to preregistered IID/common-risk strata;
+  clean/perturbed robustness summaries, fully charged cost-per-success, Type-7
+  latency percentiles, and descriptive quality-cost-latency Pareto membership.
+  The implemented campaign contract requires a full-freeze preflight and
+  distinguishes offline byte replay from new stochastic experimental
+  reproduction.
+- Removed the narrow-hard-check automatic-win path: an optimized output that
+  merely passes a required-token check still faces blind quality judgment.
+  Critical optimized regressions remain authoritative losses, and two outputs
+  that both fail hard checks remain ties.
+- R06 now requires visual-review outcome counts to match reviewed coverage and
+  optimized images to win more cases than they lose; complete but losing image
+  reviews cannot satisfy readiness.
+- R03/R04 readiness now require the exact twelve Product Spec domain ids rather
+  than accepting any arbitrary collection whose count happens to be twelve.
+- The Codex benchmark runner now gives model calls an empty temporary working
+  directory outside the checkout. This reduces accidental benchmark/file
+  exposure but is only defense in depth; tool-capable runs remain diagnostic
+  rather than sealed frontier evidence.
+- Bound the benchmark runner's fallback artifact directory to its active
+  protocol version and made temporary model-workspace cleanup deterministic on
+  usage, adapter, and unexpected failure paths. A cleanup failure is attached to
+  rather than allowed to mask an existing quota/adapter failure.
+- Made frontier-document boundary validation require one exact visible status
+  block so hidden examples cannot satisfy the release contract. The block now
+  distinguishes implemented contract/host/replay machinery from the unexecuted
+  independent authority and external campaign, whose machine result remains
+  `not_evaluable`.
+- Closed JSON and scalar-contract aliasing at authority boundaries: file loads
+  reject lossy Decimal-to-float conversion, benchmark/run/evaluation/summary
+  fields reject boolean-as-integer values, migration plans reject duplicate
+  keys, and the exact model transport preserves Prompt whitespace.
+- Made custom readiness evidence an exact kind-specific contract, including
+  SHA-256 machine/operator identities for R08, and made explicit service-auth
+  environment variables plus OpenAI/external-command JSON wrappers fail closed
+  instead of silently degrading.
+- Bound stable R05 to a strict `code-execution-plan` and an explicit live
+  `DockerSandbox`. Authority validation reloads the source evaluation, reruns
+  isolation/resource probes and every eligible software check, and requires
+  exact report reproduction; detached or offline self-hashed facts fail closed.
+- Advanced visual review to `balanced_hmac_sha256_v2`: every packet/key pair
+  receives a fresh 256-bit secret, the public protocol exposes only its
+  commitment, and the private key retains the secret, seed, source mappings,
+  and optimized labels.
+- Bound stable R06 to a strict `visual-review-plan`, exact source replay, unique
+  image-generation receipts from an `ImageGenerationReceiptVerifier`, and
+  unique visual-reviewer receipts from a
+  `VisualReviewerSubmissionVerifier`. Receipt-free CLI aggregation remains
+  diagnostic.
+- Added `code_execution_plan` and `visual_review_plan` to readiness
+  `authority_sources`; legacy detached code/image evidence is not directly
+  migratable into stable-release authority.
+- Removed the production host-Python fallback for model-generated software
+  checks. Executable cases now require a digest-pinned, policy-verified Docker
+  sandbox; runner, recorded-evaluation, and code-evidence CLIs fail closed when
+  it is absent.
+- Closed evidence-level authority bypasses: optimization artifacts are capped
+  at E1, single evaluations at E2, E3 comes only from a validated three-run
+  aggregate with independently verified model-call receipts, and E4 requires
+  every counted case to be covered by the same three or more artifact-bound,
+  receipt-verified reviewers. E3, E4, and readiness validators reload the bound
+  source directories/plans with the same verifiers and require exact report
+  reconstruction.
+- Made E1 authority replayable: artifacts now bind the source Prompt, reject
+  unknown or malformed Schema fields, rerun both deterministic audits, and
+  derive evidence from those replayed facts instead of self-reported findings.
+- Strengthened E3 independence with accepted-provider provenance, non-empty and
+  unique provider response IDs, positive usage, semantic payload fingerprints,
+  and externally verified request/response/context receipts. Self-reported
+  metadata without a trusted `ModelCallReceiptVerifier` remains below E3; mock,
+  unidentified, reused, and metadata-disguised copied runs fail closed.
+- Bound E3 to the actual resolved `benchmark-definition.json` copied into every
+  run. Source replay recomputes its hash and verifies each domain source Prompt,
+  case set, and case digest rather than trusting repeated manifest fields.
+- Advanced E4 packets and keys to `balanced_round_robin_hmac_sha256_v3`: fresh
+  256-bit coordinator keys blind public review IDs and A/B assignments, while
+  the public packet exposes only a commitment. At least two fully consistent probes,
+  non-degenerate base selections, full overlap, direct consensus, positive
+  direct human improvement, and unique receipts from a trusted
+  `ReviewerSubmissionVerifier` are now required.
+- Coordinator-only adjudications are explicit diagnostics and cannot count as
+  human wins or qualify a report for E4.
+- Unified the HTTP decoder, `OptimizationRequest`, and its JSON Schema with
+  strict required/unknown/type checks and a contract-bound `candidate_count`.
+- Replaced tag, fence, and JSON-substring response guessing with exact JSON
+  object transports; JSON string escaping permits literal tag text inside the
+  Prompt, and Codex wrapper bodies use escaped string literals so payload data
+  cannot close the wrapper. Excessively nested JSON now fails as a bounded
+  contract error instead of leaking a recursion failure.
+- Made Docker verification reject unexpected effective mounts and invalidate a
+  run when forced container removal fails or times out. Runtime inspection also
+  rejects capability/group additions, peer or host PID/IPC namespaces, and extra
+  or unconfined security options, and requires the exact safe `/tmp` option set;
+  the active identity probe checks effective UID, GID, and supplementary groups.
+  Every create attempt now enters named cleanup, including nonzero or uncertain
+  create results.
 - Advanced to v26 by capping every single benchmark run at E2 and requiring at
   least three configuration-compatible, uniquely identified complete runs for
   E3 eligibility.
@@ -103,7 +236,8 @@
   metrics, and an E4 gate.
 - Added a persistent local HTTP service with idempotency and restart recovery.
 - Added legacy Prompt and untrusted audit-reference migration.
-- Replaced fragile fenced extraction with nested-safe transport tags.
+- Replaced fragile fenced extraction with transport tags (superseded by the
+  strict JSON transport in the current hardening work).
 - Added target-surface capability contracts and deliverable-kind recovery.
 - Added authenticated Codex benchmark execution with durable response caches,
   actual usage accounting, and configuration-locked run manifests.
@@ -142,7 +276,8 @@
   "Pass" as a standalone placeholder statement, and advanced the protocol to
   v10.
 - Added authoritative machine verification for all five software cases: four
-  restricted Python subprocess harnesses and one formal migration JSON contract.
+  restricted Python harnesses (now Docker-only) and one formal migration JSON
+  contract.
 - Added strict AST rejection for imports, dangerous builtins, dynamic calls,
   dunder access and method definitions, and unapproved methods before candidate
   execution.
@@ -156,8 +291,9 @@
   software-domain result of 3W/1T/1L with zero optimized hard failures.
 - Advanced the runner to protocol v15 by binding the evaluation/verifier source
   hash, Python version, and platform into immutable run manifests and summaries.
-- Changed code-evidence generation to re-execute all five optimized software
-  outputs with the current verifier and record its implementation hash.
+- Changed code-evidence generation to re-verify all five optimized software
+  outputs with the current verifier: execute four Python outputs and formally
+  validate the migration JSON, while recording the implementation hash.
 
 ## 0.3.0 - 2026-06-12
 
