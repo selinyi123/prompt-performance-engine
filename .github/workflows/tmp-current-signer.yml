@@ -1,0 +1,245 @@
+name: Temporary Zhihu current signer crawl
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-current-signer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+
+      - name: Prepare MediaCrawler, current signer and browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/NanmiCoder/MediaCrawler.git MediaCrawler
+          git clone --depth 1 https://github.com/zly2006/zhihu_sign_rs.git zhihu_sign_rs
+          npm install --no-save playwright-core@latest
+          CHROME_PATH=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
+          test -n "$CHROME_PATH"
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+
+          mkdir -p signer/src
+          cat > signer/Cargo.toml <<'TOML'
+          [package]
+          name = "zhihu-sign-cli"
+          version = "0.1.0"
+          edition = "2024"
+
+          [dependencies]
+          zhihu_sign = { path = "../zhihu_sign_rs" }
+          TOML
+          cat > signer/src/main.rs <<'RS'
+          use std::env;
+          fn main() {
+              let mut args = env::args().skip(1);
+              let url = args.next().expect("missing url");
+              let d_c0 = args.next().expect("missing d_c0");
+              for (k, v) in zhihu_sign::sign_zhihu_request(&url, &d_c0, None) {
+                  println!("{}\t{}", k, v);
+              }
+          }
+          RS
+          cargo build --manifest-path signer/Cargo.toml --release
+
+      - name: Crawl with Playwright plus current signer
+        id: crawl
+        continue-on-error: true
+        shell: bash
+        run: |
+          cat > current-crawl.cjs <<'NODE'
+          const fs = require('fs');
+          const { execFileSync } = require('child_process');
+          const { chromium } = require('playwright-core');
+
+          const TOKEN = 'chen-li-29-9';
+          const HOME = 'https://www.zhihu.com/';
+          const POSTS = `https://www.zhihu.com/people/${TOKEN}/posts`;
+          const START = Date.parse('2025-01-01T00:00:00+08:00') / 1000;
+          const END = Date.parse('2026-08-20T00:00:00+08:00') / 1000;
+          const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+          const lines = [];
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+          function sign(pathAndQuery, dc0) {
+            const out = execFileSync('./signer/target/release/zhihu-sign-cli', [pathAndQuery, dc0], { encoding: 'utf8' });
+            const h = {};
+            for (const line of out.trim().split(/\r?\n/)) {
+              const i = line.indexOf('\t');
+              if (i > 0) h[line.slice(0,i)] = line.slice(i+1);
+            }
+            return h;
+          }
+
+          function normalize(item) {
+            const created = Number(item.created || item.created_time || 0);
+            return {
+              id: String(item.id),
+              title: String(item.title || ''),
+              created,
+              created_iso: created ? new Date(created * 1000).toISOString() : null,
+              created_date_taipei: created ? new Date((created + 8*3600) * 1000).toISOString().slice(0,10) : null,
+              updated: Number(item.updated || item.updated_time || 0),
+              url: `https://zhuanlan.zhihu.com/p/${item.id}`,
+              author: item.author?.name || null,
+              author_url_token: item.author?.url_token || item.author?.urlToken || null,
+            };
+          }
+
+          async function main() {
+            const browser = await chromium.launch({
+              executablePath: process.env.CHROME_PATH,
+              headless: true,
+              args: ['--no-sandbox', '--disable-dev-shm-usage'],
+            });
+            const context = await browser.newContext({ userAgent: UA, locale: 'zh-CN', viewport: { width: 1920, height: 1080 } });
+            await context.addInitScript({ path: 'MediaCrawler/libs/stealth.min.js' });
+            const page = await context.newPage();
+
+            const home = await page.goto(HOME, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForTimeout(5000);
+            lines.push(`home status=${home?.status()} title=${JSON.stringify(await page.title())}`);
+
+            const cookies = await context.cookies([HOME]);
+            const dc0 = cookies.find(c => c.name === 'd_c0')?.value;
+            const xsrf = cookies.find(c => c.name === '_xsrf')?.value;
+            lines.push(`cookie-names=${[...new Set(cookies.map(c=>c.name))].sort().join(',')}`);
+            lines.push(`has-d_c0=${Boolean(dc0)} has-xsrf=${Boolean(xsrf)}`);
+            if (!dc0) throw new Error('d_c0 not obtained');
+
+            const posts = await page.goto(POSTS, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null);
+            await page.waitForTimeout(4000);
+            lines.push(`posts status=${posts?.status() ?? 'navigation-error'} title=${JSON.stringify(await page.title())}`);
+
+            let nextUrl = `https://www.zhihu.com/api/v4/members/${TOKEN}/articles?sort_by=created&offset=0&limit=20`;
+            const collected = new Map();
+            let pages = 0;
+            let creator = null;
+            let reachedBeforeStart = false;
+
+            while (nextUrl && pages < 400) {
+              const u = new URL(nextUrl);
+              const pathAndQuery = u.pathname + u.search;
+              const sig = sign(pathAndQuery, dc0);
+              const result = await page.evaluate(async ({ url, sig, xsrf }) => {
+                const headers = {
+                  'accept': 'application/json, text/plain, */*',
+                  'x-zse-93': sig['x-zse-93'],
+                  'x-zse-96': sig['x-zse-96'],
+                  'x-requested-with': sig['x-requested-with'] || 'fetch',
+                };
+                if (xsrf) headers['x-xsrftoken'] = xsrf;
+                try {
+                  const r = await fetch(url, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers,
+                  });
+                  return { status: r.status, text: await r.text() };
+                } catch (e) {
+                  return { status: 0, text: String(e) };
+                }
+              }, { url: nextUrl, sig, xsrf });
+
+              lines.push(`page=${pages+1} offset=${u.searchParams.get('offset') ?? '?'} status=${result.status}`);
+              if (result.status !== 200) {
+                lines.push(`error-body=${result.text.slice(0,1000).replace(/\s+/g,' ')}`);
+                fs.writeFileSync('current-signer-error.txt', `HTTP ${result.status}\n${result.text.slice(0,20000)}\n`);
+                break;
+              }
+
+              const body = JSON.parse(result.text);
+              const data = Array.isArray(body.data) ? body.data : [];
+              pages++;
+              if (data.length && !creator) {
+                const a = data[0].author || {};
+                creator = { id: a.id || null, name: a.name || null, url_token: a.url_token || a.urlToken || TOKEN };
+              }
+              for (const item of data) {
+                const n = normalize(item);
+                if (n.id && n.title) collected.set(n.id, n);
+              }
+              const createdValues = data.map(x => Number(x.created || x.created_time || 0)).filter(Boolean);
+              const oldest = createdValues.length ? Math.min(...createdValues) : Infinity;
+              const newest = createdValues.length ? Math.max(...createdValues) : 0;
+              lines.push(`data=${data.length} total=${collected.size} newest=${newest ? new Date(newest*1000).toISOString() : 'none'} oldest=${Number.isFinite(oldest) ? new Date(oldest*1000).toISOString() : 'none'} is_end=${Boolean(body.paging?.is_end)}`);
+
+              if (!data.length || body.paging?.is_end) {
+                nextUrl = null;
+                break;
+              }
+              if (Number.isFinite(oldest) && oldest < START) {
+                reachedBeforeStart = true;
+                lines.push('stop: reached article older than requested start date');
+                break;
+              }
+              const candidate = body.paging?.next;
+              if (!candidate || candidate === nextUrl) {
+                lines.push('stop: paging.next missing or unchanged');
+                break;
+              }
+              nextUrl = candidate.startsWith('http') ? candidate : new URL(candidate, HOME).href;
+              await sleep(650);
+            }
+
+            const all = [...collected.values()];
+            const articles = all.filter(x => x.created >= START && x.created < END).sort((a,b) => b.created - a.created);
+            lines.push(`final pages=${pages} captured=${all.length} matched=${articles.length} reachedBeforeStart=${reachedBeforeStart}`);
+
+            if (pages > 0) {
+              fs.writeFileSync('current-signer-result.json', JSON.stringify({
+                source: 'Zhihu /api/v4/members/{url_token}/articles using 2026 zhihu_sign v0.1.0 + MediaCrawler Playwright cookie bootstrap',
+                target: `https://www.zhihu.com/people/${TOKEN}`,
+                date_range: { start: '2025-01-01T00:00:00+08:00', end_inclusive: '2026-08-19T23:59:59+08:00' },
+                creator,
+                pages_fetched: pages,
+                captured_count: all.length,
+                count: articles.length,
+                reached_before_start: reachedBeforeStart,
+                articles,
+              }, null, 2));
+            } else if (!fs.existsSync('current-signer-error.txt')) {
+              fs.writeFileSync('current-signer-error.txt', 'No successful article API page.\n');
+            }
+            fs.writeFileSync('current-signer-status.txt', lines.join('\n') + '\n');
+            await browser.close();
+            if (pages === 0) process.exitCode = 1;
+          }
+
+          main().catch(e => {
+            lines.push(`fatal=${e.stack || e}`);
+            fs.writeFileSync('current-signer-status.txt', lines.join('\n') + '\n');
+            fs.writeFileSync('current-signer-error.txt', String(e.stack || e) + '\n');
+            console.error(e);
+            process.exit(1);
+          });
+          NODE
+          node current-crawl.cjs
+
+      - name: Persist sanitized current-signer result
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p tmp-current-signer-result
+          rm -f tmp-current-signer-result/*
+          [ ! -f current-signer-result.json ] || cp current-signer-result.json tmp-current-signer-result/current-signer-result.json
+          [ ! -f current-signer-error.txt ] || cp current-signer-error.txt tmp-current-signer-result/current-signer-error.txt
+          [ ! -f current-signer-status.txt ] || cp current-signer-status.txt tmp-current-signer-result/current-signer-status.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-current-signer-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist current signer Zhihu result [skip ci]'
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
