@@ -1,0 +1,20 @@
+[
+  {
+    "target": "articles_api",
+    "status": 200,
+    "found": 0,
+    "message": ""
+  },
+  {
+    "target": "posts",
+    "status": null,
+    "found": 0,
+    "message": "URLError: <urlopen error [Errno 111] Connection refused>"
+  },
+  {
+    "target": "profile",
+    "status": 200,
+    "found": 0,
+    "message": ""
+  }
+]
