@@ -1,0 +1,67 @@
+name: Temporary Zhihu en endpoint reverse
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-zhihu-en-reverse.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reverse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+      - name: Fetch public SEO page bundles and locate author-list action
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request,re,json,os
+          page_url='https://www.zhihu.com/en/article/1902368936156201487'
+          req=urllib.request.Request(page_url,headers={'User-Agent':'Mozilla/5.0'})
+          with urllib.request.urlopen(req,timeout=40) as r:
+              page=r.read().decode('utf-8','replace')
+          srcs=re.findall(r'<script[^>]+src="([^"]+\.js(?:\?[^\"]*)?)"',page)
+          srcs=[s if s.startswith('http') else urllib.parse.urljoin(page_url,s) for s in srcs]
+          needles=['getAuthorArticles','authorArticles','globalStation','getGlobalContentData','24225']
+          hits=[]
+          for src in srcs:
+              try:
+                  req=urllib.request.Request(src,headers={'User-Agent':'Mozilla/5.0'})
+                  with urllib.request.urlopen(req,timeout=60) as r: data=r.read().decode('utf-8','replace')
+              except Exception as e:
+                  hits.append({'src':src,'error':repr(e)}); continue
+              local=[]
+              for needle in needles:
+                  pos=0
+                  while True:
+                      i=data.find(needle,pos)
+                      if i<0: break
+                      local.append({'needle':needle,'snippet':data[max(0,i-1200):min(len(data),i+2500)]})
+                      pos=i+len(needle)
+                      if sum(1 for h in local if h['needle']==needle)>=8: break
+              if local: hits.append({'src':src,'size':len(data),'hits':local})
+          os.makedirs('tmp-zhihu-en-reverse-result',exist_ok=True)
+          with open('tmp-zhihu-en-reverse-result/hits.json','w',encoding='utf-8') as f: json.dump({'scripts':srcs,'hits':hits},f,ensure_ascii=False,indent=2)
+          print('scripts',len(srcs),'hitfiles',sum(1 for x in hits if x.get('hits')))
+          for x in hits:
+              if x.get('hits'): print(x['src'],[(h['needle']) for h in x['hits']])
+          PY
+      - name: Persist
+        if: always()
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-zhihu-en-reverse-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist Zhihu en endpoint reverse result [skip ci]'
+            git pull --rebase origin tmp/zhihu-chen-li-20260824
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
