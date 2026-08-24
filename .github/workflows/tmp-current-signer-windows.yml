@@ -1,0 +1,75 @@
+name: Temporary Zhihu current signer Windows
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-current-signer-windows.yml
+
+permissions:
+  contents: write
+
+jobs:
+  crawl:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+
+      - name: Prepare dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/NanmiCoder/MediaCrawler.git MediaCrawler
+          git clone --depth 1 https://github.com/zly2006/zhihu_sign_rs.git zhihu_sign_rs
+          npm install --no-save playwright@latest
+          npx playwright install chromium
+
+          mkdir -p signer/src
+          cat > signer/Cargo.toml <<'TOML'
+          [package]
+          name = "zhihu-sign-cli"
+          version = "0.1.0"
+          edition = "2024"
+
+          [dependencies]
+          zhihu_sign = { path = "../zhihu_sign_rs" }
+          TOML
+          cat > signer/src/main.rs <<'RS'
+          use std::env;
+          fn main() {
+              let mut args = env::args().skip(1);
+              let url = args.next().expect("missing url");
+              let d_c0 = args.next().expect("missing d_c0");
+              for (k, v) in zhihu_sign::sign_zhihu_request(&url, &d_c0, None) {
+                  println!("{}\t{}", k, v);
+              }
+          }
+          RS
+          cargo build --manifest-path signer/Cargo.toml --release
+
+      - name: Crawl
+        continue-on-error: true
+        shell: bash
+        run: node tmp-tools/current-crawl-macos.cjs
+
+      - name: Persist sanitized result
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p tmp-current-signer-windows-result
+          rm -f tmp-current-signer-windows-result/*
+          [ ! -f mac-current-result.json ] || cp mac-current-result.json tmp-current-signer-windows-result/windows-current-result.json
+          [ ! -f mac-current-error.txt ] || cp mac-current-error.txt tmp-current-signer-windows-result/windows-current-error.txt
+          [ ! -f mac-current-status.txt ] || cp mac-current-status.txt tmp-current-signer-windows-result/windows-current-status.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-current-signer-windows-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist Windows current-signer result [skip ci]'
+            git pull --rebase origin tmp/zhihu-chen-li-20260824
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
