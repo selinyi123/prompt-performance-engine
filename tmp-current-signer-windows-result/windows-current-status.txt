@@ -1,0 +1,8 @@
+platform=win32
+home status=200 title="知乎 - 有问题，就会有答案"
+cookie-names=BEC,HMACCOUNT,Hm_lpvt_98beee57fd2ef70ccdd5ca52b9740c49,Hm_lvt_98beee57fd2ef70ccdd5ca52b9740c49,JOID,SESSIONID,__snaker__id,_xsrf,_zap,captcha_session_v2,d_c0,gdxidpyhxdE,osd
+has-d_c0=true has-xsrf=true
+posts status=403 title=""
+page=1 offset=0 status=403
+error-body={"error":{"message":"您当前请求存在异常，暂时限制本次访问。如有疑问，您可以通过手机摇一摇或登录后私信知乎小管家反馈。f2914c3d66e91ebb0e075d2ab6a56180","code":40362}} 
+final pages=0 captured=0 matched=0 reachedBeforeStart=false
