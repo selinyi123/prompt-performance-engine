@@ -1,0 +1,101 @@
+name: Temporary RSSHub Zhihu probe
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-rsshub-probe.yml
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+      - name: Probe public instances
+        shell: bash
+        run: |
+          python - <<'PY'
+          import concurrent.futures, json, urllib.request, urllib.error, time
+
+          instances = [
+            'https://rsshub.app',
+            'https://rsshub.rssforever.com',
+            'https://hub.slarker.me',
+            'https://rsshub.pseudoyu.com',
+            'https://rsshub.rss.tips',
+            'https://rsshub.ktachibana.party',
+            'https://rss.owo.nz',
+            'https://rss.wudifeixue.com',
+            'https://rss.littlebaby.life',
+            'https://rsshub.guidebook.top',
+            'https://rss.kael.ink',
+          ]
+          routes = [
+            ('web', '/zhihu/posts/people/chen-li-29-9'),
+            ('xhu', '/zhihu/xhu/people/posts/9ef009342f181450fc54e99c8b5ef1b7'),
+          ]
+
+          def one(base, label, path):
+            url = base + path
+            req = urllib.request.Request(url, headers={
+              'User-Agent': 'Mozilla/5.0 RSSHub compatibility probe',
+              'Accept': 'application/rss+xml, application/xml, text/xml, application/json, text/plain, */*',
+            })
+            started=time.time()
+            try:
+              with urllib.request.urlopen(req, timeout=28) as r:
+                body=r.read(250000)
+                text=body.decode('utf-8','replace')
+                ctype=r.headers.get('content-type','')
+                status=r.status
+            except urllib.error.HTTPError as e:
+              status=e.code; ctype=e.headers.get('content-type','') if e.headers else ''
+              text=e.read(12000).decode('utf-8','replace')
+            except Exception as e:
+              return {'base':base,'route':label,'url':url,'status':None,'elapsed':round(time.time()-started,2),'error':f'{type(e).__name__}: {e}'}
+            low=text.lower()
+            valid = status==200 and ('<rss' in low or '<feed' in low or '<item' in low or '陈力' in text or 'chen-li-29-9' in text)
+            return {
+              'base':base,'route':label,'url':url,'status':status,'elapsed':round(time.time()-started,2),
+              'content_type':ctype,'valid_candidate':valid,'body_prefix':text[:5000]
+            }
+
+          jobs=[]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+            futs=[]
+            for b in instances:
+              for label,path in routes:
+                futs.append(ex.submit(one,b,label,path))
+            for f in concurrent.futures.as_completed(futs):
+              try: jobs.append(f.result())
+              except Exception as e: jobs.append({'error':repr(e)})
+
+          jobs.sort(key=lambda x:(x.get('base',''),x.get('route','')))
+          candidates=[x for x in jobs if x.get('valid_candidate')]
+          with open('rsshub-probe.json','w',encoding='utf-8') as f:
+            json.dump({'candidates':candidates,'results':jobs},f,ensure_ascii=False,indent=2)
+          print('candidates',len(candidates))
+          for x in jobs:
+            print(x.get('base'), x.get('route'), x.get('status'), x.get('elapsed'), 'candidate='+str(x.get('valid_candidate',False)))
+          PY
+      - name: Persist probe result
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p tmp-rsshub-probe-result
+          cp rsshub-probe.json tmp-rsshub-probe-result/ 2>/dev/null || true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-rsshub-probe-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist RSSHub probe result [skip ci]'
+            git pull --rebase origin tmp/zhihu-chen-li-20260824
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
