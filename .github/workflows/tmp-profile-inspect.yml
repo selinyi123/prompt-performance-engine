@@ -1,0 +1,92 @@
+name: Temporary Zhihu profile inspect
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-profile-inspect.yml
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+      - run: |
+          git clone --depth 1 https://github.com/NanmiCoder/MediaCrawler.git MediaCrawler
+          npm install --no-save playwright-core@latest
+          CHROME_PATH=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+      - name: Inspect profile metadata
+        continue-on-error: true
+        shell: bash
+        run: |
+          cat > inspect.cjs <<'NODE'
+          const fs = require('fs');
+          const { chromium } = require('playwright-core');
+          const TOKEN='chen-li-29-9';
+          const HOME='https://www.zhihu.com/';
+          const POSTS=`https://www.zhihu.com/people/${TOKEN}/posts`;
+          const UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+          function findUser(root){
+            const seen=new Set();
+            function walk(v){
+              if(!v||typeof v!=='object'||seen.has(v)) return null;
+              seen.add(v);
+              if((v.urlToken===TOKEN||v.url_token===TOKEN)&&v.id) return v;
+              if(Array.isArray(v)){for(const x of v){const r=walk(x);if(r)return r;}}
+              else {for(const x of Object.values(v)){const r=walk(x);if(r)return r;}}
+              return null;
+            }
+            return walk(root);
+          }
+          function scalarSummary(o){
+            const out={};
+            for(const [k,v] of Object.entries(o||{})){
+              if(v===null||['string','number','boolean'].includes(typeof v)) out[k]=v;
+            }
+            return out;
+          }
+          (async()=>{
+            const browser=await chromium.launch({executablePath:process.env.CHROME_PATH,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+            const ctx=await browser.newContext({userAgent:UA,locale:'zh-CN',viewport:{width:1920,height:1080}});
+            await ctx.addInitScript({path:'MediaCrawler/libs/stealth.min.js'});
+            const page=await ctx.newPage();
+            await page.goto(HOME,{waitUntil:'domcontentloaded',timeout:30000});
+            await page.waitForTimeout(5000);
+            const resp=await page.goto(POSTS,{waitUntil:'domcontentloaded',timeout:30000});
+            await page.waitForTimeout(6000);
+            const initText=await page.locator('#js-initialData').textContent({timeout:1500}).catch(()=>null);
+            let user=null;
+            if(initText){try{user=findUser(JSON.parse(initText));}catch{}}
+            const links=await page.locator('a').evaluateAll(as=>as.map(a=>({text:(a.innerText||a.textContent||'').trim(),href:a.href})).filter(x=>x.href));
+            const bodyText=(await page.locator('body').innerText()).slice(0,20000);
+            const relevantLinks=links.filter(x=>/zhuanlan\.zhihu\.com\/p\//.test(x.href)||/\/posts(?:\?|$)/.test(x.href)||x.text.includes('文章'));
+            const result={status:resp?.status(),title:await page.title(),user:scalarSummary(user),relevantLinks,bodyArticleLines:bodyText.split(/\n+/).filter(x=>x.includes('文章')).slice(0,100)};
+            fs.writeFileSync('profile-inspect.json',JSON.stringify(result,null,2));
+            await browser.close();
+          })().catch(e=>{fs.writeFileSync('profile-inspect-error.txt',String(e.stack||e));process.exitCode=1;});
+          NODE
+          node inspect.cjs
+      - name: Persist inspect result
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p tmp-profile-inspect
+          rm -f tmp-profile-inspect/*
+          [ ! -f profile-inspect.json ] || cp profile-inspect.json tmp-profile-inspect/profile-inspect.json
+          [ ! -f profile-inspect-error.txt ] || cp profile-inspect-error.txt tmp-profile-inspect/profile-inspect-error.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-profile-inspect
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist temporary profile inspect [skip ci]'
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
