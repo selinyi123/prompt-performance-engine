@@ -1,0 +1,61 @@
+name: Temporary Zhihu Android public endpoint test
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-android-public.yml
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+      - name: Test Android API
+        shell: bash
+        run: |
+          set +e
+          PEOPLE='9ef009342f181450fc54e99c8b5ef1b7'
+          UA='com.zhihu.android/Futureve/10.100.0 Mozilla/5.0 (Linux; Android 12; sdk_gphone64_arm64 Build/SE1A.220630.001.A1; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/57.0.1000.10 Mobile Safari/537.36'
+          APPZA='OS=Android&Release=12&Model=sdk_gphone64_arm64&VersionName=10.100.0&VersionCode=30008&Product=com.zhihu.android&Width=1440&Height=2952&Installer=Market&DeviceType=AndroidPhone&Brand=google'
+          : > android-public-status.txt
+          for URL in \
+            "https://api.zhihu.com/people/$PEOPLE" \
+            "https://api.zhihu.com/people/$PEOPLE/articles?limit=20&offset=0"; do
+            CODE=$(curl -sS --compressed --max-time 30 -o android-body.tmp -w '%{http_code}' \
+              -H "User-Agent: $UA" \
+              -H 'Accept: application/json, text/plain, */*' \
+              -H 'x-page-id: 132' \
+              -H 'x-api-version: 3.0.93' \
+              -H 'x-app-version: 10.100.0' \
+              -H "x-app-za: $APPZA" \
+              -H 'x-app-bundleid: com.zhihu.android' \
+              -H 'x-app-flavor: zhihuwap64' \
+              -H 'x-app-build: release' \
+              -H 'x-network-type: 3G' \
+              "$URL")
+            echo "URL=$URL status=$CODE" >> android-public-status.txt
+            head -c 1500 android-body.tmp | tr '\n' ' ' >> android-public-status.txt
+            echo >> android-public-status.txt
+          done
+      - name: Persist result
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p tmp-android-public-result
+          cp android-public-status.txt tmp-android-public-result/android-public-status.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-android-public-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist Android public endpoint test [skip ci]'
+            git pull --rebase origin tmp/zhihu-chen-li-20260824
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
