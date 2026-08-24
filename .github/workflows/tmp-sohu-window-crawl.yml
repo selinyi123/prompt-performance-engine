@@ -1,0 +1,85 @@
+name: Temporary Sohu public history crawl
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-sohu-window-crawl.yml
+
+permissions:
+  contents: write
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+      - name: Crawl author pages until endpoint exhaustion
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request, urllib.parse, json, os, time
+          from datetime import datetime, timezone
+
+          BASE='https://v2.sohu.com/author-page-api/author-articles/pc/252291'
+          headers={'User-Agent':'Mozilla/5.0','Accept':'application/json'}
+          all_rows=[]; status=[]; empty_streak=0
+          for p in range(1,401):
+              url=BASE+'?'+urllib.parse.urlencode({'pNo':p,'columnId':''})
+              req=urllib.request.Request(url,headers=headers)
+              try:
+                  with urllib.request.urlopen(req,timeout=30) as r:
+                      obj=json.loads(r.read().decode('utf-8','replace'))
+              except Exception as e:
+                  status.append({'page':p,'error':repr(e)}); time.sleep(.5); continue
+              rows=((obj or {}).get('data') or {}).get('pcArticleVOS') or []
+              status.append({'page':p,'count':len(rows),'firstTime':rows[0].get('publicTime') if rows else None,'lastTime':rows[-1].get('publicTime') if rows else None})
+              if not rows:
+                  empty_streak += 1
+                  if empty_streak>=3: break
+              else:
+                  empty_streak=0
+                  for x in rows:
+                      all_rows.append({
+                        'page':p,'id':x.get('id'),'title':x.get('title'),'publicTime':x.get('publicTime'),
+                        'link':'https://'+x.get('link','') if x.get('link') and not str(x.get('link')).startswith('http') else x.get('link'),
+                        'brief':x.get('brief'),'userId':x.get('userId')
+                      })
+              time.sleep(.08)
+
+          # Deduplicate by id, retain API order.
+          seen=set(); ded=[]
+          for r in all_rows:
+              if r['id'] in seen: continue
+              seen.add(r['id']); ded.append(r)
+
+          known=['中国酒石酸市场预测与投资战略报告','中国汽车紧固件行业市场调研与发展战略报告','中国二氢茉莉酮酸甲酯','对羟基苯甘氨酸','一次性生物反应器']
+          matches=[]
+          for r in ded:
+              for k in known:
+                  if k in (r.get('title') or ''):
+                      matches.append({'needle':k,**r})
+
+          os.makedirs('tmp-sohu-window-result',exist_ok=True)
+          with open('tmp-sohu-window-result/articles.json','w',encoding='utf-8') as f: json.dump(ded,f,ensure_ascii=False,indent=2)
+          with open('tmp-sohu-window-result/status.json','w',encoding='utf-8') as f: json.dump({'pages':status,'count':len(ded),'known_matches':matches},f,ensure_ascii=False,indent=2)
+          print('count',len(ded),'last_status',status[-5:])
+          print('known_matches',json.dumps(matches,ensure_ascii=False,indent=2))
+          if ded: print('oldest',ded[-1].get('publicTime'),ded[-1].get('title'))
+          PY
+      - name: Persist
+        if: always()
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-sohu-window-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist Sohu public history crawl [skip ci]'
+            git pull --rebase origin tmp/zhihu-chen-li-20260824
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
