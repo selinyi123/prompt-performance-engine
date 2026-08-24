@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-zhihu-chen-li.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   crawl:
@@ -14,6 +16,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
 
       - name: Clone MediaCrawler
         run: git clone --depth 1 https://github.com/NanmiCoder/MediaCrawler.git MediaCrawler
@@ -21,26 +25,28 @@ jobs:
       - name: Bootstrap Zhihu cookies
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
           touch cookies.txt
-          curl -L --compressed --max-time 30 -sS -A "$UA" -c cookies.txt -b cookies.txt \
-            -H 'accept-language: zh-CN,zh;q=0.9' \
-            'https://www.zhihu.com/' -o bootstrap-home.html || true
-          sleep 2
-          curl -L --compressed --max-time 30 -sS -A "$UA" -c cookies.txt -b cookies.txt \
-            -H 'accept-language: zh-CN,zh;q=0.9' \
-            -H 'referer: https://www.zhihu.com/' \
-            'https://www.zhihu.com/people/chen-li-29-9/posts' -o bootstrap-posts.html || true
-          sleep 2
-          curl -L --compressed --max-time 30 -sS -A "$UA" -c cookies.txt -b cookies.txt \
-            -H 'accept-language: zh-CN,zh;q=0.9' \
-            -H 'referer: https://www.zhihu.com/' \
-            'https://www.zhihu.com/search?q=python&type=content' -o bootstrap-search.html || true
-          echo 'Cookie names obtained:'
-          awk 'BEGIN{FS="\t"} !/^#/ && NF>=7 {print $6} /^#HttpOnly_/ && NF>=7 {print $6}' cookies.txt | sort -u
+          : > bootstrap-status.txt
+          for URL in \
+            'https://www.zhihu.com/' \
+            'https://www.zhihu.com/people/chen-li-29-9/posts' \
+            'https://www.zhihu.com/search?q=python&type=content'; do
+            CODE=$(curl -L --compressed --max-time 30 -sS -A "$UA" -c cookies.txt -b cookies.txt \
+              -H 'accept-language: zh-CN,zh;q=0.9' \
+              -H 'referer: https://www.zhihu.com/' \
+              -o bootstrap-last.html -w '%{http_code}' "$URL" || echo 'curl-error')
+            echo "$URL -> $CODE" >> bootstrap-status.txt
+            sleep 2
+          done
+          echo 'Cookie names obtained:' >> bootstrap-status.txt
+          awk 'BEGIN{FS="\t"} !/^#/ && NF>=7 {print $6} /^#HttpOnly_/ && NF>=7 {print $6}' cookies.txt | sort -u >> bootstrap-status.txt
+          cat bootstrap-status.txt
 
       - name: Crawl creator articles with MediaCrawler signer
+        id: crawl
+        continue-on-error: true
         shell: bash
         run: |
           cat > crawl.cjs <<'NODE'
@@ -67,7 +73,7 @@ jobs:
 
           const jar = readCookies('cookies.txt');
           if (!jar.d_c0) {
-            fs.writeFileSync('crawl-error.txt', 'No d_c0 cookie obtained from Zhihu bootstrap.\n');
+            fs.writeFileSync('crawl-error.txt', 'No d_c0 cookie obtained from Zhihu bootstrap.\n' + (fs.existsSync('bootstrap-status.txt') ? fs.readFileSync('bootstrap-status.txt', 'utf8') : ''));
             throw new Error('No d_c0 cookie obtained from Zhihu bootstrap');
           }
           const cookie = Object.entries(jar).map(([k,v]) => `${k}=${v}`).join('; ');
@@ -158,17 +164,27 @@ jobs:
           NODE
           node crawl.cjs
 
-      - name: Upload crawl output
+      - name: Persist sanitized result on temporary branch
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: zhihu-chen-li-output
-          path: |
-            chen-li-articles.json
-            crawl-error.txt
-            cookies.txt
-            bootstrap-home.html
-            bootstrap-posts.html
-            bootstrap-search.html
-          if-no-files-found: ignore
-          retention-days: 1
+        shell: bash
+        run: |
+          mkdir -p tmp-zhihu-result
+          rm -f tmp-zhihu-result/*
+          if [ -f chen-li-articles.json ]; then
+            cp chen-li-articles.json tmp-zhihu-result/chen-li-articles.json
+          fi
+          if [ -f crawl-error.txt ]; then
+            cp crawl-error.txt tmp-zhihu-result/crawl-error.txt
+          fi
+          if [ -f bootstrap-status.txt ]; then
+            cp bootstrap-status.txt tmp-zhihu-result/bootstrap-status.txt
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-zhihu-result
+          if git diff --cached --quiet; then
+            echo 'No result changes to commit'
+          else
+            git commit -m 'chore: persist temporary Zhihu crawl result [skip ci]'
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
