@@ -1,8 +1,3 @@
-No d_c0 cookie obtained from Zhihu bootstrap.
-https://www.zhihu.com/ -> 200
-https://www.zhihu.com/people/chen-li-29-9/posts -> 403
-https://www.zhihu.com/search?q=python&type=content -> 403
-Cookie names obtained:
-BEC
-_xsrf
-_zap
+HTTP 403
+{"error":{"message":"您当前请求存在异常，暂时限制本次访问。如有疑问，您可以通过手机摇一摇或登录后私信知乎小管家反馈。a98486b46fa9b1066c49dc5e672b3f88","code":40362}}
+

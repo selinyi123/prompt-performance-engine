@@ -1,7 +1,4 @@
-https://www.zhihu.com/ -> 200
-https://www.zhihu.com/people/chen-li-29-9/posts -> 403
-https://www.zhihu.com/search?q=python&type=content -> 403
-Cookie names obtained:
-BEC
-_xsrf
-_zap
+https://www.zhihu.com/ -> 200 title="知乎 - 有问题，就会有答案"
+cookies-after-url=BEC,HMACCOUNT,Hm_lpvt_98beee57fd2ef70ccdd5ca52b9740c49,Hm_lvt_98beee57fd2ef70ccdd5ca52b9740c49,JOID,SESSIONID,__snaker__id,_xsrf,_zap,captcha_session_v2,d_c0,gdxidpyhxdE,osd
+final-cookie-names=BEC,HMACCOUNT,Hm_lpvt_98beee57fd2ef70ccdd5ca52b9740c49,Hm_lvt_98beee57fd2ef70ccdd5ca52b9740c49,JOID,SESSIONID,__snaker__id,_xsrf,_zap,captcha_session_v2,d_c0,gdxidpyhxdE,osd
+has-d_c0=true
