@@ -1,0 +1,6 @@
+[
+  {
+    "provider": "none",
+    "error": "No JUSTONEAPI_TOKEN or TIKHUB_TOKEN GitHub Actions secret is configured."
+  }
+]
