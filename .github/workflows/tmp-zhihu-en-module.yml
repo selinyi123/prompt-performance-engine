@@ -1,0 +1,53 @@
+name: Temporary Zhihu globalStation module extraction
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-zhihu-en-module.yml
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+      - name: Extract module and API strings
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request,re,json,os
+          url='https://static.zhihu.com/heifetz/other.app.8077d60bc75339ee832c.js'
+          req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0'})
+          with urllib.request.urlopen(req,timeout=60) as r: s=r.read().decode('utf-8','replace')
+          start=s.find('18412:function')
+          if start<0: raise SystemExit('module not found')
+          # Module ends at the next numeric webpack module marker.
+          m=re.search(r'},\d{2,6}:function\(',s[start+20:])
+          end=start+20+m.start()+1 if m else min(len(s),start+80000)
+          mod=s[start:end]
+          # keep full module if sane; expected small
+          os.makedirs('tmp-zhihu-en-module-result',exist_ok=True)
+          open('tmp-zhihu-en-module-result/module.txt','w',encoding='utf-8').write(mod)
+          strings=sorted(set(re.findall(r'"([^"\\]*(?:\\.[^"\\]*)*)"',mod)))
+          useful=[x for x in strings if any(k in x.lower() for k in ['author','article','question','topic','global','api','root','station','en/'])]
+          with open('tmp-zhihu-en-module-result/meta.json','w',encoding='utf-8') as f:
+            json.dump({'start':start,'length':len(mod),'useful_strings':useful},f,ensure_ascii=False,indent=2)
+          print('length',len(mod)); print('\n'.join(useful[:200]))
+          PY
+      - name: Persist
+        shell: bash
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-zhihu-en-module-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist Zhihu globalStation module [skip ci]'
+            git pull --rebase origin tmp/zhihu-chen-li-20260824
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
