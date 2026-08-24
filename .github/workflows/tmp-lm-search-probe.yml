@@ -1,0 +1,66 @@
+name: Temporary LM report search probe
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-lm-search-probe.yml
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+      - name: Query LM search
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request, urllib.parse, re, json, os, html, time
+          from http.cookiejar import CookieJar
+
+          base='https://www.lmcmr.com'
+          opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(CookieJar()))
+          ua={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128 Safari/537.36'}
+          out=[]
+          for keyword in ['报告','中国','（2025版）','（2026版）']:
+              data=urllib.parse.urlencode({'keyboard':keyword,'show':'title','tempid':'1'}).encode('utf-8')
+              req=urllib.request.Request(base+'/e/search/index.php',data=data,headers={**ua,'Content-Type':'application/x-www-form-urlencoded'})
+              try:
+                  with opener.open(req,timeout=40) as r:
+                      final=r.geturl(); text=r.read().decode('utf-8','replace'); code=r.status
+              except Exception as e:
+                  out.append({'keyword':keyword,'error':repr(e)}); continue
+              m=re.search(r'searchid=(\d+)',final)
+              if not m:
+                  m=re.search(r'searchid=(\d+)',text)
+              sid=m.group(1) if m else None
+              mt=re.search(r'<a title="总数">\s*&nbsp;<b>(\d+)</b>',text)
+              if not mt: mt=re.search(r'title="总数"[^>]*>.*?<b>(\d+)</b>',text,re.S)
+              total=int(mt.group(1)) if mt else None
+              titles=[html.unescape(x) for x in re.findall(r'<h2 class="r"><span>\d+\.</span>\s*<a class="l"[^>]*>(.*?)</a>',text,re.S)]
+              dates=re.findall(r'<span class="a">.*? - (\d{4}-\d{2}-\d{2})</span>',text,re.S)
+              out.append({'keyword':keyword,'status':code,'final_url':final,'searchid':sid,'total':total,'first_titles':[re.sub('<[^>]+>','',t).strip() for t in titles[:5]],'dates':dates[:5]})
+              time.sleep(1)
+          os.makedirs('tmp-lm-probe-result',exist_ok=True)
+          with open('tmp-lm-probe-result/result.json','w',encoding='utf-8') as f: json.dump(out,f,ensure_ascii=False,indent=2)
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          PY
+      - name: Persist
+        if: always()
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-lm-probe-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist LM search probe [skip ci]'
+            git pull --rebase origin tmp/zhihu-chen-li-20260824
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
