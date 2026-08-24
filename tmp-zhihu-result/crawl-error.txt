@@ -1,16 +1,12 @@
-All crawl paths failed.
-browser: https://www.zhihu.com/ status=200 title="知乎 - 有问题，就会有答案"
-browser: https://www.zhihu.com/people/chen-li-29-9 status=403 title="陈力 - 知乎"
-browser: extracted peopleId=9ef009342f181450fc54e99c8b5ef1b7
-browser: https://www.zhihu.com/people/chen-li-29-9/posts status=200 title="陈力 - 知乎"
-browser: extracted peopleId=9ef009342f181450fc54e99c8b5ef1b7
-browser: cookie-names=BEC,HMACCOUNT,Hm_lpvt_98beee57fd2ef70ccdd5ca52b9740c49,Hm_lvt_98beee57fd2ef70ccdd5ca52b9740c49,JOID,SESSIONID,__snaker__id,__zse_ck,_xsrf,_zap,captcha_session_v2,d_c0,gdxidpyhxdE,osd
-browser-api: offset=0 status=401
-browser-api: body={"error": {"message": "第三方应用独立请求时，无此操作权限", "code": 602, "name": "AuthenticationInvalidClient"}}
-xhu: starting guest auth
-xhu: udid status=200 cookies=zhihu-udid,zhihu-sn
-xhu: token status=401 cookies=
-xhu: fatal Error: xhu token HTTP 401
-    at xhuFetchArticles (/home/runner/work/prompt-performance-engine/prompt-performance-engine/crawl-all.cjs:86:27)
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async main (/home/runner/work/prompt-performance-engine/prompt-performance-engine/crawl-all.cjs:223:17)
+No matching articles captured.
+home status=200 title="知乎 - 有问题，就会有答案"
+home cookies=BEC,HMACCOUNT,Hm_lpvt_98beee57fd2ef70ccdd5ca52b9740c49,Hm_lvt_98beee57fd2ef70ccdd5ca52b9740c49,JOID,SESSIONID,__snaker__id,_xsrf,_zap,captcha_session_v2,d_c0,gdxidpyhxdE,osd
+https://www.zhihu.com/people/chen-li-29-9 status=403 title="陈力 - 知乎"
+initialData parsed targetPeopleId=9ef009342f181450fc54e99c8b5ef1b7 totalCaptured=0
+network articles status=401 data=null totalCaptured=0
+https://www.zhihu.com/people/chen-li-29-9/posts status=200 title="陈力 - 知乎"
+initialData parsed targetPeopleId=9ef009342f181450fc54e99c8b5ef1b7 totalCaptured=0
+scroll=0 height=1439 captured=0 oldest=none
+scroll=5 height=1439 captured=0 oldest=none
+stop: page and article count stagnant
+final targetPeopleId=9ef009342f181450fc54e99c8b5ef1b7 apiResponses=1 allCaptured=0 matched=0
