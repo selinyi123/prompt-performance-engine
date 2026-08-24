@@ -1,0 +1,62 @@
+[
+  {
+    "keyword": "报告",
+    "status": 200,
+    "final_url": "https://www.lmcmr.com/e/search/result/?searchid=1004",
+    "searchid": "1004",
+    "total": 10220,
+    "first_titles": [
+      "中国氢氧化铝行业市场调研与投资评估报告（2026版）",
+      "中国氟化铝行业市场调研与投资预测报告（2026版）",
+      "中国七水硫酸锌行业市场调研与投资评估报告（2026版）",
+      "中国四氧化三锰行业市场调研与投资前景评估报告（2026版）",
+      "中国UV灯行业调研与投资战略报告（2026版）"
+    ],
+    "dates": [
+      "2026-08-24",
+      "2026-08-24",
+      "2026-08-24",
+      "2026-08-24",
+      "2026-08-24"
+    ]
+  },
+  {
+    "keyword": "中国",
+    "status": 200,
+    "final_url": "https://www.lmcmr.com/e/search/result/?searchid=530",
+    "searchid": "530",
+    "total": 10202,
+    "first_titles": [
+      "中国氢氧化铝行业市场调研与投资评估报告（2026版）",
+      "中国氟化铝行业市场调研与投资预测报告（2026版）",
+      "中国七水硫酸锌行业市场调研与投资评估报告（2026版）",
+      "中国四氧化三锰行业市场调研与投资前景评估报告（2026版）",
+      "中国UV灯行业调研与投资战略报告（2026版）"
+    ],
+    "dates": [
+      "2026-08-24",
+      "2026-08-24",
+      "2026-08-24",
+      "2026-08-24",
+      "2026-08-24"
+    ]
+  },
+  {
+    "keyword": "（2025版）",
+    "status": 200,
+    "final_url": "https://www.lmcmr.com/e/search/index.php",
+    "searchid": null,
+    "total": null,
+    "first_titles": [],
+    "dates": []
+  },
+  {
+    "keyword": "（2026版）",
+    "status": 200,
+    "final_url": "https://www.lmcmr.com/e/search/index.php",
+    "searchid": null,
+    "total": null,
+    "first_titles": [],
+    "dates": []
+  }
+]
