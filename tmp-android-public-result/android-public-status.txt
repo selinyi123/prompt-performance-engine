@@ -1,0 +1,4 @@
+URL=https://api.zhihu.com/people/9ef009342f181450fc54e99c8b5ef1b7 status=403
+{"error":{"need_login":true,"redirect":"https:\/\/www.zhihu.com\/account\/unhuman?type=U4E3Z1&need_login=true&session=869d1a9302f452a32aca7b3e5fd39052&next=%2Fsignin","code":40353,"message":"请您登录后查看更多专业优质内容。"}} 
+URL=https://api.zhihu.com/people/9ef009342f181450fc54e99c8b5ef1b7/articles?limit=20&offset=0 status=403
+{"error":{"message":"您当前请求存在异常，暂时限制本次访问。如有疑问，您可以通过手机摇一摇或登录后私信知乎小管家反馈。1f57b70ea24fcbb8aadc2ad0f3f579e2","code":40362}} 
