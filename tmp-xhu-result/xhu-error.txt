@@ -1,0 +1,7 @@
+udid status=200 set-cookie-count=2 names=zhihu-udid,zhihu-sn
+udid body={ "udid": "yfAXR8CxzBxLBclVZT0USVKxynMv0Y_Fzos=", "sn": "70637a75636c3272" }
+token status=401 set-cookie-count=0 names=
+token body={ "error": { "message": "请求参数异常，请升级客户端后重试。", "code": 10003 } }
+fatal=Error: token HTTP 401
+    at main (/home/runner/work/prompt-performance-engine/prompt-performance-engine/xhu.cjs:30:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
