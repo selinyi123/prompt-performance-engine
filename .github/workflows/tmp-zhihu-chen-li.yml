@@ -22,27 +22,79 @@ jobs:
       - name: Clone MediaCrawler
         run: git clone --depth 1 https://github.com/NanmiCoder/MediaCrawler.git MediaCrawler
 
-      - name: Bootstrap Zhihu cookies
+      - name: Prepare browser runtime
         shell: bash
         run: |
-          set -u
-          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
-          touch cookies.txt
-          : > bootstrap-status.txt
-          for URL in \
-            'https://www.zhihu.com/' \
-            'https://www.zhihu.com/people/chen-li-29-9/posts' \
-            'https://www.zhihu.com/search?q=python&type=content'; do
-            CODE=$(curl -L --compressed --max-time 30 -sS -A "$UA" -c cookies.txt -b cookies.txt \
-              -H 'accept-language: zh-CN,zh;q=0.9' \
-              -H 'referer: https://www.zhihu.com/' \
-              -o bootstrap-last.html -w '%{http_code}' "$URL" || echo 'curl-error')
-            echo "$URL -> $CODE" >> bootstrap-status.txt
-            sleep 2
-          done
-          echo 'Cookie names obtained:' >> bootstrap-status.txt
-          awk 'BEGIN{FS="\t"} !/^#/ && NF>=7 {print $6} /^#HttpOnly_/ && NF>=7 {print $6}' cookies.txt | sort -u >> bootstrap-status.txt
-          cat bootstrap-status.txt
+          set -euo pipefail
+          npm install --no-save playwright-core@latest
+          CHROME_PATH=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
+          if [ -z "$CHROME_PATH" ]; then
+            echo 'No system Chrome found' >&2
+            exit 1
+          fi
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          "$CHROME_PATH" --version
+
+      - name: Bootstrap Zhihu cookies with Playwright
+        shell: bash
+        run: |
+          cat > bootstrap.cjs <<'NODE'
+          const fs = require('fs');
+          const { chromium } = require('playwright-core');
+
+          const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+          const HOME = 'https://www.zhihu.com/';
+          const POSTS = 'https://www.zhihu.com/people/chen-li-29-9/posts';
+          const SEARCH = 'https://www.zhihu.com/search?q=python&type=content';
+
+          async function main() {
+            const browser = await chromium.launch({
+              executablePath: process.env.CHROME_PATH,
+              headless: true,
+              args: ['--no-sandbox', '--disable-dev-shm-usage'],
+            });
+            const context = await browser.newContext({
+              userAgent: UA,
+              locale: 'zh-CN',
+              viewport: { width: 1920, height: 1080 },
+            });
+            await context.addInitScript({ path: 'MediaCrawler/libs/stealth.min.js' });
+            const page = await context.newPage();
+            const lines = [];
+
+            for (const url of [HOME, POSTS, SEARCH]) {
+              try {
+                const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                await page.waitForTimeout(6000);
+                lines.push(`${url} -> ${response ? response.status() : 'no-response'} title=${JSON.stringify(await page.title())}`);
+              } catch (e) {
+                lines.push(`${url} -> navigation-error ${e.name}: ${e.message.split('\n')[0]}`);
+              }
+              const names = (await context.cookies([HOME])).map(c => c.name).sort();
+              lines.push(`cookies-after-url=${[...new Set(names)].join(',')}`);
+              if (names.includes('d_c0')) break;
+            }
+
+            const cookies = await context.cookies([HOME]);
+            const cookieNames = [...new Set(cookies.map(c => c.name))].sort();
+            lines.push(`final-cookie-names=${cookieNames.join(',')}`);
+            const hasDc0 = cookies.some(c => c.name === 'd_c0');
+            lines.push(`has-d_c0=${hasDc0}`);
+            fs.writeFileSync('bootstrap-status.txt', lines.join('\n') + '\n');
+
+            const netscape = ['# Netscape HTTP Cookie File'];
+            for (const c of cookies) {
+              const domain = c.domain || '.zhihu.com';
+              const includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+              netscape.push([domain, includeSubdomains, c.path || '/', c.secure ? 'TRUE' : 'FALSE', Math.max(0, Math.floor(c.expires || 0)), c.name, c.value].join('\t'));
+            }
+            fs.writeFileSync('cookies.txt', netscape.join('\n') + '\n');
+            await browser.close();
+            console.log(lines.join('\n'));
+          }
+          main().catch(e => { fs.writeFileSync('crawl-error.txt', `Playwright bootstrap failed: ${e.stack || e}\n`); console.error(e); process.exit(1); });
+          NODE
+          node bootstrap.cjs
 
       - name: Crawl creator articles with MediaCrawler signer
         id: crawl
@@ -73,8 +125,8 @@ jobs:
 
           const jar = readCookies('cookies.txt');
           if (!jar.d_c0) {
-            fs.writeFileSync('crawl-error.txt', 'No d_c0 cookie obtained from Zhihu bootstrap.\n' + (fs.existsSync('bootstrap-status.txt') ? fs.readFileSync('bootstrap-status.txt', 'utf8') : ''));
-            throw new Error('No d_c0 cookie obtained from Zhihu bootstrap');
+            fs.writeFileSync('crawl-error.txt', 'No d_c0 cookie obtained from Playwright bootstrap.\n' + (fs.existsSync('bootstrap-status.txt') ? fs.readFileSync('bootstrap-status.txt', 'utf8') : ''));
+            throw new Error('No d_c0 cookie obtained from Playwright bootstrap');
           }
           const cookie = Object.entries(jar).map(([k,v]) => `${k}=${v}`).join('; ');
 
@@ -147,7 +199,7 @@ jobs:
             }
 
             kept.sort((a,b) => b.created - a.created);
-            const output = {
+            fs.writeFileSync('chen-li-articles.json', JSON.stringify({
               source: 'NanmiCoder/MediaCrawler signer + Zhihu creator articles API',
               target: `https://www.zhihu.com/people/${USER_TOKEN}`,
               date_range: { start: '2025-01-01T00:00:00+08:00', end_inclusive: '2026-08-19T23:59:59+08:00' },
@@ -155,8 +207,7 @@ jobs:
               pages_fetched: pages,
               count: kept.length,
               articles: kept,
-            };
-            fs.writeFileSync('chen-li-articles.json', JSON.stringify(output, null, 2));
+            }, null, 2));
             console.log(`creator=${creator?.name || 'unknown'} pages=${pages} matched=${kept.length}`);
           }
 
@@ -170,21 +221,13 @@ jobs:
         run: |
           mkdir -p tmp-zhihu-result
           rm -f tmp-zhihu-result/*
-          if [ -f chen-li-articles.json ]; then
-            cp chen-li-articles.json tmp-zhihu-result/chen-li-articles.json
-          fi
-          if [ -f crawl-error.txt ]; then
-            cp crawl-error.txt tmp-zhihu-result/crawl-error.txt
-          fi
-          if [ -f bootstrap-status.txt ]; then
-            cp bootstrap-status.txt tmp-zhihu-result/bootstrap-status.txt
-          fi
+          [ ! -f chen-li-articles.json ] || cp chen-li-articles.json tmp-zhihu-result/chen-li-articles.json
+          [ ! -f crawl-error.txt ] || cp crawl-error.txt tmp-zhihu-result/crawl-error.txt
+          [ ! -f bootstrap-status.txt ] || cp bootstrap-status.txt tmp-zhihu-result/bootstrap-status.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add tmp-zhihu-result
-          if git diff --cached --quiet; then
-            echo 'No result changes to commit'
-          else
+          if ! git diff --cached --quiet; then
             git commit -m 'chore: persist temporary Zhihu crawl result [skip ci]'
             git push origin HEAD:tmp/zhihu-chen-li-20260824
           fi
