@@ -1,0 +1,173 @@
+name: Temporary credential-safe Zhihu aggregator crawl
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-zhihu-aggregator-crawl.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JUSTONEAPI_TOKEN: ${{ secrets.JUSTONEAPI_TOKEN }}
+      TIKHUB_TOKEN: ${{ secrets.TIKHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+
+      - name: Crawl via available legal API credential
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.parse, urllib.request, urllib.error
+          from datetime import datetime, timezone, timedelta
+
+          TOKEN = 'chen-li-29-9'
+          START = int(datetime(2025,1,1,tzinfo=timezone(timedelta(hours=8))).timestamp())
+          END = int(datetime(2026,8,20,tzinfo=timezone(timedelta(hours=8))).timestamp())
+          just = os.environ.get('JUSTONEAPI_TOKEN','').strip()
+          tik = os.environ.get('TIKHUB_TOKEN','').strip()
+          status=[]
+          articles={}
+
+          def get_json(url, headers=None, timeout=120):
+              req=urllib.request.Request(url, headers=headers or {})
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      raw=r.read().decode('utf-8','replace')
+                      return r.status, json.loads(raw), raw[:1000]
+              except urllib.error.HTTPError as e:
+                  raw=e.read().decode('utf-8','replace')
+                  try: obj=json.loads(raw)
+                  except Exception: obj=None
+                  return e.code, obj, raw[:1000]
+
+          def find_article_list(obj):
+              best=[]
+              def walk(x, depth=0):
+                  nonlocal best
+                  if depth>7: return
+                  if isinstance(x,list):
+                      cand=[i for i in x if isinstance(i,dict) and i.get('title') and (i.get('id') is not None)]
+                      if len(cand)>len(best): best=cand
+                      for i in x[:30]: walk(i,depth+1)
+                  elif isinstance(x,dict):
+                      for v in x.values(): walk(v,depth+1)
+              walk(obj)
+              return best
+
+          def find_paging(obj):
+              found=None
+              def walk(x, depth=0):
+                  nonlocal found
+                  if found is not None or depth>6: return
+                  if isinstance(x,dict):
+                      p=x.get('paging')
+                      if isinstance(p,dict): found=p; return
+                      for v in x.values(): walk(v,depth+1)
+                  elif isinstance(x,list):
+                      for v in x[:10]: walk(v,depth+1)
+              walk(obj)
+              return found or {}
+
+          def keep(items):
+              times=[]
+              for item in items:
+                  created=item.get('created') or item.get('created_time') or item.get('createdAt') or item.get('created_at') or 0
+                  try: created=int(created)
+                  except Exception: created=0
+                  if created>10**12: created//=1000
+                  if created: times.append(created)
+                  aid=str(item.get('id',''))
+                  title=str(item.get('title','')).strip()
+                  if aid and title and START <= created < END:
+                      author=item.get('author') if isinstance(item.get('author'),dict) else {}
+                      articles[aid]={
+                          'id': aid,
+                          'title': title,
+                          'created': created,
+                          'created_date_taipei': datetime.fromtimestamp(created,timezone(timedelta(hours=8))).strftime('%Y-%m-%d'),
+                          'url': f'https://zhuanlan.zhihu.com/p/{aid}',
+                          'author': author.get('name') if author else None,
+                          'author_url_token': (author.get('url_token') or author.get('urlToken')) if author else None,
+                      }
+              return min(times) if times else None, max(times) if times else None
+
+          provider=None
+          if tik:
+              provider='tikhub'
+              offset=0
+              for page in range(1,160):
+                  qs=urllib.parse.urlencode({'user_url_token':TOKEN,'offset':offset,'limit':50,'sort_type':'created'})
+                  url='https://api.tikhub.io/api/v1/zhihu/web/fetch_user_articles?'+qs
+                  code,obj,prefix=get_json(url,{'Authorization':'Bearer '+tik,'Accept':'application/json'})
+                  if code!=200 or not isinstance(obj,(dict,list)):
+                      status.append({'provider':provider,'page':page,'offset':offset,'http':code,'error':prefix[:300]}); break
+                  items=find_article_list(obj)
+                  oldest,newest=keep(items)
+                  status.append({'provider':provider,'page':page,'offset':offset,'http':code,'items':len(items),'oldest':oldest,'newest':newest})
+                  if not items: break
+                  if oldest and oldest < START: break
+                  paging=find_paging(obj)
+                  if paging.get('is_end') is True: break
+                  offset += len(items) if len(items)>0 else 50
+                  time.sleep(0.8)
+          elif just:
+              provider='justoneapi'
+              offset=0
+              for page in range(1,220):
+                  qs=urllib.parse.urlencode({'token':just,'userUrlToken':TOKEN,'offset':offset,'sortType':'created'})
+                  url='https://api.justoneapi.com/api/zhihu/get-user-articles/v1?'+qs
+                  code,obj,prefix=get_json(url,{'Accept':'application/json'})
+                  if code!=200 or not isinstance(obj,(dict,list)):
+                      status.append({'provider':provider,'page':page,'offset':offset,'http':code,'error':prefix[:300]}); break
+                  if isinstance(obj,dict) and obj.get('code') not in (None,0,200):
+                      status.append({'provider':provider,'page':page,'offset':offset,'http':code,'business_code':obj.get('code'),'message':str(obj.get('message') or obj.get('msg') or '')[:300]}); break
+                  items=find_article_list(obj)
+                  oldest,newest=keep(items)
+                  status.append({'provider':provider,'page':page,'offset':offset,'http':code,'items':len(items),'oldest':oldest,'newest':newest})
+                  if not items: break
+                  if oldest and oldest < START: break
+                  paging=find_paging(obj)
+                  if paging.get('is_end') is True: break
+                  offset += len(items) if len(items)>0 else 20
+                  time.sleep(0.8)
+          else:
+              provider='none'
+              status.append({'provider':'none','error':'No JUSTONEAPI_TOKEN or TIKHUB_TOKEN GitHub Actions secret is configured.'})
+
+          rows=sorted(articles.values(), key=lambda x:x['created'], reverse=True)
+          out={
+              'provider':provider,
+              'target':'https://www.zhihu.com/people/chen-li-29-9',
+              'date_range':{'start':'2025-01-01','end_inclusive':'2026-08-19'},
+              'count':len(rows),
+              'articles':rows,
+              'status':status,
+          }
+          os.makedirs('tmp-aggregator-result',exist_ok=True)
+          with open('tmp-aggregator-result/result.json','w',encoding='utf-8') as f: json.dump(out,f,ensure_ascii=False,indent=2)
+          with open('tmp-aggregator-result/status.json','w',encoding='utf-8') as f: json.dump(status,f,ensure_ascii=False,indent=2)
+          print('provider=',provider,'count=',len(rows),'last=',status[-1] if status else None)
+          PY
+
+      - name: Persist sanitized result
+        if: always()
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-aggregator-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist aggregator Zhihu result [skip ci]'
+            git pull --rebase origin tmp/zhihu-chen-li-20260824
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
