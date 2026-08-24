@@ -1,0 +1,7 @@
+https://www.zhihu.com/ -> 200
+https://www.zhihu.com/people/chen-li-29-9/posts -> 403
+https://www.zhihu.com/search?q=python&type=content -> 403
+Cookie names obtained:
+BEC
+_xsrf
+_zap
