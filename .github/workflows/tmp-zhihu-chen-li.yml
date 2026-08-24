@@ -1,0 +1,174 @@
+name: Temporary Zhihu Chen Li crawl
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+
+permissions:
+  contents: read
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone MediaCrawler
+        run: git clone --depth 1 https://github.com/NanmiCoder/MediaCrawler.git MediaCrawler
+
+      - name: Bootstrap Zhihu cookies
+        shell: bash
+        run: |
+          set -euo pipefail
+          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+          touch cookies.txt
+          curl -L --compressed --max-time 30 -sS -A "$UA" -c cookies.txt -b cookies.txt \
+            -H 'accept-language: zh-CN,zh;q=0.9' \
+            'https://www.zhihu.com/' -o bootstrap-home.html || true
+          sleep 2
+          curl -L --compressed --max-time 30 -sS -A "$UA" -c cookies.txt -b cookies.txt \
+            -H 'accept-language: zh-CN,zh;q=0.9' \
+            -H 'referer: https://www.zhihu.com/' \
+            'https://www.zhihu.com/people/chen-li-29-9/posts' -o bootstrap-posts.html || true
+          sleep 2
+          curl -L --compressed --max-time 30 -sS -A "$UA" -c cookies.txt -b cookies.txt \
+            -H 'accept-language: zh-CN,zh;q=0.9' \
+            -H 'referer: https://www.zhihu.com/' \
+            'https://www.zhihu.com/search?q=python&type=content' -o bootstrap-search.html || true
+          echo 'Cookie names obtained:'
+          awk 'BEGIN{FS="\t"} !/^#/ && NF>=7 {print $6} /^#HttpOnly_/ && NF>=7 {print $6}' cookies.txt | sort -u
+
+      - name: Crawl creator articles with MediaCrawler signer
+        shell: bash
+        run: |
+          cat > crawl.cjs <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+
+          const USER_TOKEN = 'chen-li-29-9';
+          const START = Date.parse('2025-01-01T00:00:00+08:00') / 1000;
+          const END_EXCLUSIVE = Date.parse('2026-08-20T00:00:00+08:00') / 1000;
+          const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+          function readCookies(path) {
+            if (!fs.existsSync(path)) return {};
+            const out = {};
+            for (let raw of fs.readFileSync(path, 'utf8').split(/\r?\n/)) {
+              if (!raw) continue;
+              if (raw.startsWith('#HttpOnly_')) raw = raw.slice('#HttpOnly_'.length);
+              else if (raw.startsWith('#')) continue;
+              const p = raw.split('\t');
+              if (p.length >= 7) out[p[5]] = p[6];
+            }
+            return out;
+          }
+
+          const jar = readCookies('cookies.txt');
+          if (!jar.d_c0) {
+            fs.writeFileSync('crawl-error.txt', 'No d_c0 cookie obtained from Zhihu bootstrap.\n');
+            throw new Error('No d_c0 cookie obtained from Zhihu bootstrap');
+          }
+          const cookie = Object.entries(jar).map(([k,v]) => `${k}=${v}`).join('; ');
+
+          const signerCode = fs.readFileSync('MediaCrawler/libs/zhihu.js', 'utf8');
+          const sandbox = { require, console, Math };
+          vm.createContext(sandbox);
+          vm.runInContext(signerCode, sandbox);
+          if (typeof sandbox.get_sign !== 'function') throw new Error('MediaCrawler get_sign not found');
+
+          const include = 'data[*].comment_count,suggest_edit,is_normal,thumbnail_extra_info,thumbnail,can_comment,comment_permission,admin_closed_comment,content,voteup_count,created,updated,upvoted_followees,voting,review_info,reaction_instruction,is_labeled,label_info;data[*].vessay_info;data[*].author.badge[?(type=best_answerer)].topics;data[*].author.vip_info;';
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+          async function main() {
+            const kept = [];
+            let offset = 0;
+            let pages = 0;
+            let creator = null;
+            let isEnd = false;
+
+            while (!isEnd && offset < 4000) {
+              const qs = new URLSearchParams({ include, offset: String(offset), limit: '20', order_by: 'created' }).toString();
+              const uri = `/api/v4/members/${USER_TOKEN}/articles?${qs}`;
+              const sig = sandbox.get_sign(uri, cookie);
+              const headers = {
+                'accept': '*/*',
+                'accept-language': 'zh-CN,zh;q=0.9',
+                'cookie': cookie,
+                'priority': 'u=1, i',
+                'referer': `https://www.zhihu.com/people/${USER_TOKEN}/posts`,
+                'user-agent': UA,
+                'x-api-version': '3.0.91',
+                'x-app-za': 'OS=Web',
+                'x-requested-with': 'fetch',
+                'x-zse-93': '101_3_3.0',
+                'x-zst-81': sig['x-zst-81'],
+                'x-zse-96': sig['x-zse-96'],
+              };
+
+              const res = await fetch(`https://www.zhihu.com${uri}`, { headers });
+              const text = await res.text();
+              console.log(`offset=${offset} status=${res.status}`);
+              if (!res.ok) {
+                fs.writeFileSync('crawl-error.txt', `HTTP ${res.status}\n${text.slice(0, 20000)}\n`);
+                throw new Error(`Zhihu API HTTP ${res.status}`);
+              }
+              const body = JSON.parse(text);
+              const data = Array.isArray(body.data) ? body.data : [];
+              pages++;
+              for (const item of data) {
+                if (!creator && item.author) creator = { name: item.author.name, url_token: item.author.url_token || USER_TOKEN, id: item.author.id || null };
+                const created = Number(item.created || item.created_time || 0);
+                if (created >= START && created < END_EXCLUSIVE) {
+                  kept.push({
+                    id: String(item.id),
+                    title: item.title || '',
+                    created,
+                    created_iso: new Date(created * 1000).toISOString(),
+                    updated: Number(item.updated || item.updated_time || 0),
+                    url: `https://zhuanlan.zhihu.com/p/${item.id}`,
+                    author: item.author?.name || null,
+                  });
+                }
+              }
+              isEnd = Boolean(body.paging?.is_end);
+              if (data.length === 0) break;
+              const oldest = Math.min(...data.map(x => Number(x.created || x.created_time || Infinity)));
+              if (oldest < START) break;
+              offset += 20;
+              await sleep(1500);
+            }
+
+            kept.sort((a,b) => b.created - a.created);
+            const output = {
+              source: 'NanmiCoder/MediaCrawler signer + Zhihu creator articles API',
+              target: `https://www.zhihu.com/people/${USER_TOKEN}`,
+              date_range: { start: '2025-01-01T00:00:00+08:00', end_inclusive: '2026-08-19T23:59:59+08:00' },
+              creator,
+              pages_fetched: pages,
+              count: kept.length,
+              articles: kept,
+            };
+            fs.writeFileSync('chen-li-articles.json', JSON.stringify(output, null, 2));
+            console.log(`creator=${creator?.name || 'unknown'} pages=${pages} matched=${kept.length}`);
+          }
+
+          main().catch(err => { console.error(err.stack || err); process.exit(1); });
+          NODE
+          node crawl.cjs
+
+      - name: Upload crawl output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zhihu-chen-li-output
+          path: |
+            chen-li-articles.json
+            crawl-error.txt
+            cookies.txt
+            bootstrap-home.html
+            bootstrap-posts.html
+            bootstrap-search.html
+          if-no-files-found: ignore
+          retention-days: 1
