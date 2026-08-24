@@ -1,0 +1,7 @@
+home status=200 title="安全验证 - 知乎"
+cookie-names=BEC,HMACCOUNT,Hm_lpvt_98beee57fd2ef70ccdd5ca52b9740c49,Hm_lvt_98beee57fd2ef70ccdd5ca52b9740c49,SESSIONID,_xsrf,_zap,captcha_session_v2,d_c0,sec_token
+has-d_c0=true has-xsrf=true
+posts status=403 title="安全验证 - 知乎"
+page=1 offset=0 status=403
+error-body={"error":{"need_login":true,"redirect":"https:\/\/www.zhihu.com\/account\/unhuman?type=S6E3V1&need_login=true&session=6f9454520ad4991f2f6689a27adc9b1c","code":40352,"message":"系统监测到您的网络环境存在异常，为保证您的正常访问，请点击下方验证按钮进行验证。在您验证完成前，该提示将多次出现。"}} 
+final pages=0 captured=0 matched=0 reachedBeforeStart=false
