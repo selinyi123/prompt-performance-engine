@@ -1,0 +1,121 @@
+name: Temporary xhu Chen Li retry
+
+on:
+  push:
+    branches:
+      - tmp/zhihu-chen-li-20260824
+    paths:
+      - .github/workflows/tmp-xhu-chen-li.yml
+
+permissions:
+  contents: write
+
+jobs:
+  xhu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/zhihu-chen-li-20260824
+
+      - name: Call xhu with exact RSSHub cookie flow
+        continue-on-error: true
+        shell: bash
+        run: |
+          cat > xhu.cjs <<'NODE'
+          const fs = require('fs');
+          const WORKER = 'https://api.zhihuvvv.workers.dev';
+          const PEOPLE_ID = '9ef009342f181450fc54e99c8b5ef1b7';
+          const START = Date.parse('2025-01-01T00:00:00+08:00') / 1000;
+          const END = Date.parse('2026-08-20T00:00:00+08:00') / 1000;
+          const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+          const lines = [];
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+          function getSetCookieRaw(headers) {
+            if (typeof headers.getSetCookie === 'function') return headers.getSetCookie();
+            const one = headers.get('set-cookie');
+            return one ? [one] : [];
+          }
+
+          async function main() {
+            const common = { Referer: WORKER, 'User-Agent': UA, Accept: 'application/json,text/plain,*/*' };
+            const udid = await fetch(`${WORKER}/appcloud/v1/device`, { method: 'GET', headers: common });
+            const udidText = await udid.text();
+            const udidRaw = getSetCookieRaw(udid.headers);
+            lines.push(`udid status=${udid.status} set-cookie-count=${udidRaw.length} names=${udidRaw.map(x=>x.split('=',1)[0]).join(',')}`);
+            lines.push(`udid body=${udidText.slice(0,300).replace(/\s+/g,' ')}`);
+            const udidCookie = udidRaw.join('; ');
+
+            const token = await fetch(`${WORKER}/guests/token`, { method: 'GET', headers: { ...common, Cookie: udidCookie } });
+            const tokenText = await token.text();
+            const tokenRaw = getSetCookieRaw(token.headers);
+            lines.push(`token status=${token.status} set-cookie-count=${tokenRaw.length} names=${tokenRaw.map(x=>x.split('=',1)[0]).join(',')}`);
+            lines.push(`token body=${tokenText.slice(0,500).replace(/\s+/g,' ')}`);
+            if (!token.ok) throw new Error(`token HTTP ${token.status}`);
+
+            const accessCookie = [...tokenRaw, ...udidRaw].join('; ');
+            const all = [];
+            let pages = 0;
+            for (let offset=0; offset<4000; offset+=20) {
+              const url = `${WORKER}/people/${PEOPLE_ID}/articles?limit=20&offset=${offset}`;
+              const r = await fetch(url, { headers: { ...common, Cookie: accessCookie } });
+              const text = await r.text();
+              lines.push(`articles offset=${offset} status=${r.status} body-prefix=${text.slice(0,200).replace(/\s+/g,' ')}`);
+              if (!r.ok) throw new Error(`articles HTTP ${r.status}`);
+              const body = JSON.parse(text);
+              const data = Array.isArray(body.data) ? body.data : [];
+              all.push(...data);
+              pages++;
+              if (!data.length || body.paging?.is_end) break;
+              const oldest = Math.min(...data.map(x=>Number(x.created || x.created_time || Infinity)));
+              if (oldest < START) break;
+              await sleep(800);
+            }
+            const seen = new Map();
+            for (const item of all) {
+              const created = Number(item.created || item.created_time || 0);
+              if (created >= START && created < END) {
+                seen.set(String(item.id), {
+                  id: String(item.id),
+                  title: item.title || '',
+                  created,
+                  created_iso: new Date(created*1000).toISOString(),
+                  updated: Number(item.updated || item.updated_time || 0),
+                  url: `https://zhuanlan.zhihu.com/p/${item.id}`,
+                  author: item.author?.name || null,
+                  author_url_token: item.author?.url_token || item.author?.urlToken || null,
+                });
+              }
+            }
+            const articles = [...seen.values()].sort((a,b)=>b.created-a.created);
+            fs.writeFileSync('xhu-result.json', JSON.stringify({
+              source: 'REToys/xhu via exact RSSHub auth flow',
+              people_id: PEOPLE_ID,
+              pages_fetched: pages,
+              count: articles.length,
+              articles
+            }, null, 2));
+            lines.push(`success pages=${pages} matched=${articles.length}`);
+          }
+          main().catch(e => { lines.push(`fatal=${e.stack || e}`); fs.writeFileSync('xhu-error.txt', lines.join('\n')+'\n'); console.error(e); process.exitCode=1; }).finally(()=>fs.writeFileSync('xhu-status.txt', lines.join('\n')+'\n'));
+          NODE
+          node xhu.cjs
+
+      - name: Persist xhu result
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p tmp-xhu-result
+          rm -f tmp-xhu-result/*
+          [ ! -f xhu-result.json ] || cp xhu-result.json tmp-xhu-result/xhu-result.json
+          [ ! -f xhu-error.txt ] || cp xhu-error.txt tmp-xhu-result/xhu-error.txt
+          [ ! -f xhu-status.txt ] || cp xhu-status.txt tmp-xhu-result/xhu-status.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-xhu-result
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: persist temporary xhu result [skip ci]'
+            git push origin HEAD:tmp/zhihu-chen-li-20260824
+          fi
