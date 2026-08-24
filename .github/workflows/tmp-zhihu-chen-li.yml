@@ -30,251 +30,177 @@ jobs:
           echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
           "$CHROME_PATH" --version
 
-      - name: Crawl through browser context and xhu fallback
+      - name: Capture article data from Zhihu real browser session
         id: crawl
         continue-on-error: true
         shell: bash
         run: |
-          cat > crawl-all.cjs <<'NODE'
+          cat > capture.cjs <<'NODE'
           const fs = require('fs');
-          const vm = require('vm');
           const { chromium } = require('playwright-core');
 
           const USER_TOKEN = 'chen-li-29-9';
           const HOME = 'https://www.zhihu.com/';
           const PROFILE = `https://www.zhihu.com/people/${USER_TOKEN}`;
           const POSTS = `${PROFILE}/posts`;
-          const WORKER = 'https://api.zhihuvvv.workers.dev';
           const START = Date.parse('2025-01-01T00:00:00+08:00') / 1000;
           const END_EXCLUSIVE = Date.parse('2026-08-20T00:00:00+08:00') / 1000;
           const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
-          const include = 'data[*].comment_count,suggest_edit,is_normal,thumbnail_extra_info,thumbnail,can_comment,comment_permission,admin_closed_comment,content,voteup_count,created,updated,upvoted_followees,voting,review_info,reaction_instruction,is_labeled,label_info;data[*].vessay_info;data[*].author.badge[?(type=best_answerer)].topics;data[*].author.vip_info;';
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
           const lines = [];
+          const articles = new Map();
+          let targetPeopleId = null;
+          let apiResponseCount = 0;
+          let oldestSeen = Infinity;
 
-          const signerCode = fs.readFileSync('MediaCrawler/libs/zhihu.js', 'utf8');
-          const sandbox = { require, console, Math };
-          vm.createContext(sandbox);
-          vm.runInContext(signerCode, sandbox);
-          if (typeof sandbox.get_sign !== 'function') throw new Error('MediaCrawler get_sign not found');
-
-          function recursivelyFindUser(root) {
-            const seen = new Set();
-            function walk(v) {
-              if (!v || typeof v !== 'object' || seen.has(v)) return null;
-              seen.add(v);
-              if (v.urlToken === USER_TOKEN && typeof v.id === 'string') return v;
-              if (Array.isArray(v)) {
-                for (const x of v) { const r = walk(x); if (r) return r; }
-              } else {
-                for (const x of Object.values(v)) { const r = walk(x); if (r) return r; }
-              }
-              return null;
-            }
-            return walk(root);
+          function authorMatches(item) {
+            const a = item?.author;
+            if (!a || typeof a !== 'object') return false;
+            const token = a.url_token || a.urlToken;
+            return token === USER_TOKEN || (targetPeopleId && a.id === targetPeopleId);
           }
 
-          function normalizeItem(item) {
+          function addArticle(item, source) {
+            if (!item || typeof item !== 'object') return;
+            const type = item.type || item.object_type;
+            if (type && type !== 'article') return;
+            if (!item.id || !item.title) return;
+            if (!authorMatches(item)) return;
             const created = Number(item.created || item.created_time || 0);
-            return {
+            if (!created) return;
+            oldestSeen = Math.min(oldestSeen, created);
+            const normalized = {
               id: String(item.id),
-              title: item.title || '',
+              title: String(item.title),
               created,
-              created_iso: created ? new Date(created * 1000).toISOString() : null,
+              created_iso: new Date(created * 1000).toISOString(),
               updated: Number(item.updated || item.updated_time || 0),
               url: `https://zhuanlan.zhihu.com/p/${item.id}`,
               author: item.author?.name || null,
               author_url_token: item.author?.url_token || item.author?.urlToken || null,
-            };
-          }
-
-          function writeSuccess(source, creator, pages, items, extra = {}) {
-            const dedup = new Map();
-            for (const item of items.map(normalizeItem)) {
-              if (item.created >= START && item.created < END_EXCLUSIVE) dedup.set(item.id, item);
-            }
-            const kept = [...dedup.values()].sort((a,b) => b.created - a.created);
-            fs.writeFileSync('chen-li-articles.json', JSON.stringify({
               source,
-              target: PROFILE,
-              date_range: { start: '2025-01-01T00:00:00+08:00', end_inclusive: '2026-08-19T23:59:59+08:00' },
-              creator,
-              pages_fetched: pages,
-              count: kept.length,
-              articles: kept,
-              ...extra,
-            }, null, 2));
-            return kept.length;
+            };
+            const old = articles.get(normalized.id);
+            if (!old || (!old.updated && normalized.updated)) articles.set(normalized.id, normalized);
           }
 
-          function setCookiePairs(headers) {
-            const raw = typeof headers.getSetCookie === 'function' ? headers.getSetCookie() : (headers.get('set-cookie') ? [headers.get('set-cookie')] : []);
-            return raw.map(x => x.split(';', 1)[0]).filter(Boolean);
-          }
-
-          async function xhuFetchArticles(peopleIds) {
-            lines.push('xhu: starting guest auth');
-            const udidRes = await fetch(`${WORKER}/appcloud/v1/device`, { headers: { Referer: WORKER } });
-            const c1 = setCookiePairs(udidRes.headers);
-            lines.push(`xhu: udid status=${udidRes.status} cookies=${c1.map(x=>x.split('=')[0]).join(',')}`);
-            if (!udidRes.ok) throw new Error(`xhu udid HTTP ${udidRes.status}`);
-            const tokenRes = await fetch(`${WORKER}/guests/token`, { headers: { Referer: WORKER, Cookie: c1.join('; ') } });
-            const c2 = setCookiePairs(tokenRes.headers);
-            lines.push(`xhu: token status=${tokenRes.status} cookies=${c2.map(x=>x.split('=')[0]).join(',')}`);
-            if (!tokenRes.ok) throw new Error(`xhu token HTTP ${tokenRes.status}`);
-            const workerCookie = [...c2, ...c1].join('; ');
-
-            for (const peopleId of [...new Set(peopleIds.filter(Boolean))]) {
-              const all = [];
-              let offset = 0;
-              let pages = 0;
-              let creator = null;
-              let good = false;
-              while (offset < 4000) {
-                const url = `${WORKER}/people/${encodeURIComponent(peopleId)}/articles?limit=20&offset=${offset}`;
-                const r = await fetch(url, { headers: { Referer: WORKER, Cookie: workerCookie } });
-                const text = await r.text();
-                lines.push(`xhu: people=${peopleId} offset=${offset} status=${r.status}`);
-                if (!r.ok) break;
-                let body;
-                try { body = JSON.parse(text); } catch { break; }
-                const data = Array.isArray(body.data) ? body.data : [];
-                if (data.length && !creator) creator = data[0].author || null;
-                if (data.length) good = true;
-                all.push(...data);
-                pages++;
-                if (!data.length || body.paging?.is_end) break;
-                const oldest = Math.min(...data.map(x => Number(x.created || x.created_time || Infinity)));
-                if (oldest < START) break;
-                offset += 20;
-                await sleep(800);
-              }
-              if (good) {
-                const count = writeSuccess('REToys/xhu Cloudflare Worker Zhihu app API', creator, pages, all, { xhu_people_id: peopleId });
-                lines.push(`xhu: success people=${peopleId} matched=${count}`);
-                return true;
-              }
+          function walk(root, source, seen = new Set()) {
+            if (!root || typeof root !== 'object' || seen.has(root)) return;
+            seen.add(root);
+            if ((root.urlToken === USER_TOKEN || root.url_token === USER_TOKEN) && typeof root.id === 'string' && /^[0-9a-f]{32}$/i.test(root.id)) {
+              targetPeopleId = targetPeopleId || root.id;
             }
-            return false;
+            addArticle(root, source);
+            if (Array.isArray(root)) {
+              for (const x of root) walk(x, source, seen);
+            } else {
+              for (const x of Object.values(root)) walk(x, source, seen);
+            }
           }
 
           async function main() {
-            let browser;
-            let foundHexId = null;
-            try {
-              browser = await chromium.launch({ executablePath: process.env.CHROME_PATH, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-              const context = await browser.newContext({ userAgent: UA, locale: 'zh-CN', viewport: { width: 1920, height: 1080 } });
-              await context.addInitScript({ path: 'MediaCrawler/libs/stealth.min.js' });
-              const page = await context.newPage();
+            const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+            const context = await browser.newContext({ userAgent: UA, locale: 'zh-CN', viewport: { width: 1920, height: 1080 } });
+            await context.addInitScript({ path: 'MediaCrawler/libs/stealth.min.js' });
+            const page = await context.newPage();
 
-              for (const url of [HOME, PROFILE, POSTS]) {
-                try {
-                  const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                  await page.waitForTimeout(5000);
-                  lines.push(`browser: ${url} status=${resp ? resp.status() : 'no-response'} title=${JSON.stringify(await page.title())}`);
-                  const initText = await page.locator('#js-initialData').textContent({ timeout: 1000 }).catch(() => null);
-                  if (initText) {
-                    try {
-                      const user = recursivelyFindUser(JSON.parse(initText));
-                      if (user?.id) {
-                        foundHexId = user.id;
-                        lines.push(`browser: extracted peopleId=${foundHexId}`);
-                      }
-                    } catch {}
-                  }
-                } catch (e) {
-                  lines.push(`browser: ${url} navigation-error=${e.name}`);
-                }
-              }
+            const homeResp = await page.goto(HOME, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForTimeout(5000);
+            lines.push(`home status=${homeResp?.status()} title=${JSON.stringify(await page.title())}`);
+            lines.push(`home cookies=${[...new Set((await context.cookies([HOME])).map(c=>c.name))].sort().join(',')}`);
 
-              const cookies = await context.cookies([HOME]);
-              const cookieNames = [...new Set(cookies.map(c => c.name))].sort();
-              lines.push(`browser: cookie-names=${cookieNames.join(',')}`);
-              const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-              if (cookies.some(c => c.name === 'd_c0')) {
-                const all = [];
-                let offset = 0;
-                let pages = 0;
-                let creator = null;
-                let success = false;
-                await page.goto(HOME, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(()=>{});
-                await page.waitForTimeout(1500);
-                while (offset < 4000) {
-                  const qs = new URLSearchParams({ include, offset: String(offset), limit: '20', order_by: 'created' }).toString();
-                  const uri = `/api/v4/members/${USER_TOKEN}/articles?${qs}`;
-                  const sig = sandbox.get_sign(uri, cookieString);
-                  const result = await page.evaluate(async ({ fullUrl, sig, posts }) => {
-                    try {
-                      const r = await fetch(fullUrl, {
-                        method: 'GET',
-                        credentials: 'include',
-                        referrer: posts,
-                        headers: {
-                          'accept': '*/*',
-                          'x-api-version': '3.0.91',
-                          'x-app-za': 'OS=Web',
-                          'x-requested-with': 'fetch',
-                          'x-zse-93': '101_3_3.0',
-                          'x-zst-81': sig['x-zst-81'],
-                          'x-zse-96': sig['x-zse-96'],
-                        },
-                      });
-                      return { status: r.status, text: await r.text() };
-                    } catch (e) {
-                      return { status: 0, text: String(e) };
-                    }
-                  }, { fullUrl: `https://www.zhihu.com${uri}`, sig, posts: POSTS });
-                  lines.push(`browser-api: offset=${offset} status=${result.status}`);
-                  if (result.status !== 200) {
-                    lines.push(`browser-api: body=${result.text.slice(0,500).replace(/\s+/g,' ')}`);
-                    break;
-                  }
-                  const body = JSON.parse(result.text);
-                  const data = Array.isArray(body.data) ? body.data : [];
-                  if (data.length && !creator) creator = data[0].author || null;
-                  all.push(...data);
-                  pages++;
-                  success = true;
-                  if (!data.length || body.paging?.is_end) break;
-                  const oldest = Math.min(...data.map(x => Number(x.created || x.created_time || Infinity)));
-                  if (oldest < START) break;
-                  offset += 20;
-                  await sleep(1200);
-                }
-                if (success) {
-                  const count = writeSuccess('NanmiCoder/MediaCrawler signer + Playwright browser fetch', creator, pages, all, { extracted_people_id: foundHexId });
-                  lines.push(`browser-api: success matched=${count}`);
-                  fs.writeFileSync('bootstrap-status.txt', lines.join('\n') + '\n');
-                  await browser.close();
-                  return;
-                }
-              } else {
-                lines.push('browser: no d_c0');
+            page.on('response', async (resp) => {
+              const url = resp.url();
+              if (!url.includes('/articles')) return;
+              if (!url.includes('zhihu.com')) return;
+              try {
+                const ct = resp.headers()['content-type'] || '';
+                if (!ct.includes('json')) return;
+                const body = await resp.json();
+                apiResponseCount++;
+                walk(body, `network:${url.split('?')[0]}`);
+                const count = Array.isArray(body?.data) ? body.data.length : null;
+                lines.push(`network articles status=${resp.status()} data=${count} totalCaptured=${articles.size}`);
+              } catch (e) {
+                lines.push(`network articles parse-error=${e.name}`);
               }
-              await browser.close();
-              browser = null;
-            } catch (e) {
-              lines.push(`browser: fatal ${e.stack || e}`);
-              if (browser) await browser.close().catch(()=>{});
+            });
+
+            for (const url of [PROFILE, POSTS]) {
+              try {
+                const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                await page.waitForTimeout(6000);
+                lines.push(`${url} status=${resp?.status()} title=${JSON.stringify(await page.title())}`);
+                const initText = await page.locator('#js-initialData').textContent({ timeout: 1500 }).catch(() => null);
+                if (initText) {
+                  try {
+                    const obj = JSON.parse(initText);
+                    walk(obj, `initialData:${url}`);
+                    lines.push(`initialData parsed targetPeopleId=${targetPeopleId || 'none'} totalCaptured=${articles.size}`);
+                  } catch (e) {
+                    lines.push(`initialData parse-error=${e.name}`);
+                  }
+                }
+              } catch (e) {
+                lines.push(`${url} navigation-error=${e.name}`);
+              }
             }
 
-            const xhuOk = await xhuFetchArticles([foundHexId, USER_TOKEN]).catch(e => { lines.push(`xhu: fatal ${e.stack || e}`); return false; });
-            fs.writeFileSync('bootstrap-status.txt', lines.join('\n') + '\n');
-            if (!xhuOk) {
-              fs.writeFileSync('crawl-error.txt', 'All crawl paths failed.\n' + lines.join('\n') + '\n');
+            let stagnant = 0;
+            let prevHeight = 0;
+            let prevCount = articles.size;
+            for (let i = 0; i < 100; i++) {
+              const height = await page.evaluate(() => document.documentElement.scrollHeight || document.body.scrollHeight || 0);
+              await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight || document.body.scrollHeight || 0));
+              await page.mouse.wheel(0, 3000);
+              await page.waitForTimeout(1200);
+              const newHeight = await page.evaluate(() => document.documentElement.scrollHeight || document.body.scrollHeight || 0);
+              const newCount = articles.size;
+              if (newHeight <= prevHeight && newCount === prevCount) stagnant++;
+              else stagnant = 0;
+              prevHeight = newHeight;
+              prevCount = newCount;
+              if (i % 5 === 0) lines.push(`scroll=${i} height=${newHeight} captured=${newCount} oldest=${Number.isFinite(oldestSeen) ? new Date(oldestSeen*1000).toISOString() : 'none'}`);
+              if (Number.isFinite(oldestSeen) && oldestSeen < START) {
+                lines.push('stop: oldest article is before requested start date');
+                break;
+              }
+              if (stagnant >= 6) {
+                lines.push('stop: page and article count stagnant');
+                break;
+              }
+            }
+
+            const candidates = [...articles.values()];
+            const kept = candidates.filter(x => x.created >= START && x.created < END_EXCLUSIVE).sort((a,b) => b.created - a.created);
+            lines.push(`final targetPeopleId=${targetPeopleId || 'none'} apiResponses=${apiResponseCount} allCaptured=${candidates.length} matched=${kept.length}`);
+            if (kept.length) {
+              fs.writeFileSync('chen-li-articles.json', JSON.stringify({
+                source: 'Zhihu real browser session using MediaCrawler stealth bootstrap; captured frontend article data',
+                target: PROFILE,
+                creator: { name: kept[0].author, url_token: USER_TOKEN, id: targetPeopleId },
+                date_range: { start: '2025-01-01T00:00:00+08:00', end_inclusive: '2026-08-19T23:59:59+08:00' },
+                api_responses_captured: apiResponseCount,
+                total_articles_captured: candidates.length,
+                count: kept.length,
+                articles: kept,
+              }, null, 2));
+            } else {
+              fs.writeFileSync('crawl-error.txt', 'No matching articles captured.\n' + lines.join('\n') + '\n');
               process.exitCode = 1;
             }
+            fs.writeFileSync('bootstrap-status.txt', lines.join('\n') + '\n');
+            await browser.close();
           }
 
-          main().catch(e => {
-            lines.push(`fatal: ${e.stack || e}`);
+          main().catch(async e => {
+            lines.push(`fatal=${e.stack || e}`);
             fs.writeFileSync('bootstrap-status.txt', lines.join('\n') + '\n');
             fs.writeFileSync('crawl-error.txt', lines.join('\n') + '\n');
             console.error(e);
             process.exit(1);
           });
           NODE
-          node crawl-all.cjs
+          node capture.cjs
 
       - name: Persist sanitized result on temporary branch
         if: always()
